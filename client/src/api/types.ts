@@ -5,12 +5,18 @@ export {
   SORT_FIELDS,
   STATUS_FILTERS,
   TITLE_MAX_LENGTH,
+  TOTAL_COUNT_HEADER,
   type SortField,
   type SortOrder,
   type StatusFilter,
   type TodoResource as Todo,
   type TodoListQuery,
 } from '@shared/contract.js';
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+}
 
 export interface TodoEdits {
   title?: string;

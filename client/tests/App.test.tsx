@@ -54,10 +54,20 @@ describe('App', () => {
     });
 
     it('reports when the list cannot be loaded', async () => {
-      renderApp([buildTodo()], { failReads: true });
+      renderApp([buildTodo()], { failReadsAfter: 0 });
 
       expect(await screen.findByRole('alert')).toHaveTextContent(LOAD_FAILURE_MESSAGE);
       expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    });
+
+    it('keeps the list on screen when a refresh fails', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })], { failReadsAfter: 1 });
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(screen.getByRole('checkbox', { name: /Buy milk/ }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(LOAD_FAILURE_MESSAGE);
+      expect(screen.getByText('Buy milk')).toBeInTheDocument();
     });
 
     it('shows a message when there is nothing to do', async () => {
@@ -341,6 +351,67 @@ describe('App', () => {
       await waitFor(() => expect(lastListQuery().get('order')).toBe('desc'));
       expect(lastListQuery().get('sortBy')).toBe('title');
       expect(screen.getByRole('button', { name: /Sorted descending/ })).toBeInTheDocument();
+    });
+  });
+
+  describe('paging', () => {
+    const tasks = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        buildTodo({ id: `todo-${index + 1}`, title: `Task ${index + 1}` }),
+      );
+
+    it('shows ten to-dos a page and moves between pages', async () => {
+      renderApp(tasks(12));
+      await screen.findByText('Task 1');
+
+      expect(screen.getByText('Task 10')).toBeInTheDocument();
+      expect(screen.queryByText('Task 11')).not.toBeInTheDocument();
+      expect(await screen.findByText('12 to-dos')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+      expect(await screen.findByText('Task 11')).toBeInTheDocument();
+      expect(screen.queryByText('Task 1')).not.toBeInTheDocument();
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+
+      expect(await screen.findByText('Task 1')).toBeInTheDocument();
+    });
+
+    it('hides the pager when everything fits on one page', async () => {
+      renderApp(tasks(3));
+      await screen.findByText('Task 1');
+
+      expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
+    });
+
+    it('goes back to the first page when the filter changes', async () => {
+      renderApp(tasks(12));
+      await screen.findByText('Task 1');
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      await screen.findByText('Task 11');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Incomplete' }));
+
+      await waitFor(() => expect(lastListQuery().get('offset')).toBe('0'));
+      expect(await screen.findByText('Task 1')).toBeInTheDocument();
+    });
+
+    it('steps back a page when a delete empties the last one', async () => {
+      renderApp(tasks(11));
+      await screen.findByText('Task 1');
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      await screen.findByText('Task 11');
+
+      await deleteTodo('Task 11');
+
+      expect(await screen.findByText('Task 1')).toBeInTheDocument();
+      expect(await screen.findByText('10 to-dos')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
     });
   });
 });

@@ -14,8 +14,8 @@ export function buildTodo(overrides: Partial<Todo> = {}): Todo {
   };
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status });
+function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 export interface FakeApiOptions {
@@ -23,7 +23,8 @@ export interface FakeApiOptions {
   hold?: Promise<void>;
   /** Number of writes that fail with a 500 before the API recovers. */
   failWrites?: number;
-  failReads?: boolean;
+  /** Number of reads that succeed before every later read fails with a 500. */
+  failReadsAfter?: number;
 }
 
 export const WRITE_FAILURE_MESSAGE = 'The server could not save that';
@@ -31,11 +32,12 @@ export const LOAD_FAILURE_MESSAGE = 'The server could not load that';
 
 export function fakeApi(
   initial: Todo[] = [],
-  { hold, failWrites = 0, failReads = false }: FakeApiOptions = {},
+  { hold, failWrites = 0, failReadsAfter = Infinity }: FakeApiOptions = {},
 ) {
   let todos = [...initial];
   let nextId = initial.length + 1;
   let failuresLeft = failWrites;
+  let readsLeft = failReadsAfter;
 
   return vi.fn(async (input: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
@@ -45,7 +47,7 @@ export function fakeApi(
 
     if (hold && method !== 'GET') await hold;
 
-    if (method === 'GET' && failReads) {
+    if (method === 'GET' && readsLeft-- <= 0) {
       return json({ error: { code: 'INTERNAL_ERROR', message: LOAD_FAILURE_MESSAGE } }, 500);
     }
     if (method !== 'GET' && failuresLeft > 0) {
@@ -69,7 +71,12 @@ export function fakeApi(
         todo.title.toLowerCase().includes(needle) ||
         (todo.description?.toLowerCase().includes(needle) ?? false);
 
-      return json(todos.filter((todo) => matchesStatus(todo) && matchesSearch(todo)));
+      const matching = todos.filter((todo) => matchesStatus(todo) && matchesSearch(todo));
+      const offset = Number(params.get('offset') ?? 0);
+      const limit = Number(params.get('limit') ?? matching.length);
+      return json(matching.slice(offset, offset + limit), 200, {
+        'X-Total-Count': String(matching.length),
+      });
     }
 
     if (path === '/todos' && method === 'POST') {

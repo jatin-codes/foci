@@ -4,7 +4,7 @@ import './TodoItem.css';
 import type { ItemMode } from '@components/TodoList/useTodoList.js';
 import { TodoEditor } from './TodoEditor.js';
 
-interface Props {
+interface TodoItemProps {
   todo: Todo;
   isBusy: boolean;
   mode: ItemMode;
@@ -14,7 +14,7 @@ interface Props {
   onRemove: (id: string) => Promise<boolean>;
 }
 
-const NONE = <span className="details-none">None</span>;
+const NONE = <span className="details-none">-</span>;
 
 function Details({ todo }: { todo: Todo }) {
   return (
@@ -34,7 +34,15 @@ function Details({ todo }: { todo: Todo }) {
   );
 }
 
-export function TodoItem({ todo, isBusy, mode, onModeChange, onToggle, onSave, onRemove }: Props) {
+export function TodoItem({
+  todo,
+  isBusy,
+  mode,
+  onModeChange,
+  onToggle,
+  onSave,
+  onRemove,
+}: TodoItemProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const isOpen = mode !== 'collapsed';
   const classes = ['todo', todo.isCompleted ? 'done' : '', isBusy ? 'busy' : ''];

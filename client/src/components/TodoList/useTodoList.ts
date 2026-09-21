@@ -1,11 +1,13 @@
 import { keepPreviousData, useMutation, useMutationState, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { send } from '@api/http.js';
+import { useEffect, useState } from 'react';
+import { send, sendForPage } from '@api/http.js';
 import { todoKeys } from '@api/queryClient.js';
 import type { Todo, TodoEdits, TodoListQuery } from '@api/types.js';
 import { useInvalidateTodos } from '@hooks/useInvalidateTodos.js';
 
 export type ItemMode = 'collapsed' | 'details' | 'editing';
+
+export const PAGE_SIZE = 10;
 
 function queryString(query: TodoListQuery): string {
   const params = new URLSearchParams();
@@ -25,16 +27,31 @@ function emptyMessage(query: TodoListQuery): string {
   return status === 'all' ? 'Nothing to do yet.' : `No ${status} to-dos.`;
 }
 
-export function useTodoList(query: TodoListQuery) {
+export function useTodoList(
+  query: TodoListQuery,
+  page: number,
+  onPageChange: (page: number) => void,
+) {
   const invalidate = useInvalidateTodos();
   const [openItem, setOpenItem] = useState<{ id: string; mode: ItemMode } | null>(null);
   const [writeError, setWriteError] = useState<string | null>(null);
 
+  const pageQuery = { ...query, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE };
   const list = useQuery({
-    queryKey: todoKeys.list(query),
-    queryFn: () => send<Todo[]>(`/todos${queryString(query)}`),
+    queryKey: todoKeys.list(pageQuery),
+    queryFn: () => sendForPage<Todo>(`/todos${queryString(pageQuery)}`),
     placeholderData: keepPreviousData,
   });
+
+  const total = list.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const isShowingThisPage = list.isSuccess && !list.isPlaceholderData;
+  const readError = list.error ? messageFor(list.error, 'Could not load to-dos') : null;
+
+  // A delete can empty the last page; step back to the one that now is last.
+  useEffect(() => {
+    if (isShowingThisPage && page > pageCount) onPageChange(pageCount);
+  }, [isShowingThisPage, page, pageCount, onPageChange]);
 
   // A shared key lets useMutationState find every row write in flight.
   const edit = useMutation({
@@ -76,12 +93,16 @@ export function useTodoList(query: TodoListQuery) {
   }
 
   return {
-    todos: list.data ?? [],
+    todos: list.data?.items ?? [],
+    total,
+    pageCount,
     isLoading: list.isPending,
     isBusy: list.isFetching || busyIds.size > 0,
     isBusyRow: (id: string) => busyIds.has(id),
     emptyMessage: emptyMessage(query),
-    loadError: list.error ? messageFor(list.error, 'Could not load to-dos') : null,
+    // A failed refresh keeps the to-dos already on screen; only a first load has nothing to show.
+    loadError: list.data ? null : readError,
+    refreshError: list.data ? readError : null,
     writeError,
     modeFor: (id: string): ItemMode => (openItem?.id === id ? openItem.mode : 'collapsed'),
     setModeFor: (id: string, mode: ItemMode) =>

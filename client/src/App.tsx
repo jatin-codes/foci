@@ -6,7 +6,7 @@ import { TodoList } from '@components/TodoList/TodoList.js';
 import { useApp } from './useApp.js';
 
 export function App() {
-  const { query, changeQuery, onSearch, listQuery } = useApp();
+  const { query, changeQuery, onSearch, listQuery, page, setPage } = useApp();
 
   return (
     <main>
@@ -15,7 +15,7 @@ export function App() {
       <NewTodoForm />
       <SearchBar onSearch={onSearch} />
       <TodoFilters {...query} onChange={changeQuery} />
-      <TodoList query={listQuery} />
+      <TodoList query={listQuery} page={page} onPageChange={setPage} />
     </main>
   );
 }

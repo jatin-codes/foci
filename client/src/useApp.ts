@@ -12,11 +12,20 @@ const DEFAULT_QUERY: Query = { status: 'all', sortBy: 'createdAt', order: 'asc' 
 export function useApp() {
   const [query, setQuery] = useState<Query>(DEFAULT_QUERY);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   return {
     query,
-    changeQuery: (change: Partial<Query>) => setQuery((current) => ({ ...current, ...change })),
-    onSearch: useCallback((next: string) => setSearch(next), []),
+    changeQuery: (change: Partial<Query>) => {
+      setQuery((current) => ({ ...current, ...change }));
+      setPage(1);
+    },
+    onSearch: useCallback((next: string) => {
+      setSearch(next);
+      setPage(1);
+    }, []),
     listQuery: { ...query, search },
+    page,
+    setPage,
   };
 }
