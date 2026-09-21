@@ -77,6 +77,24 @@ describe('queryTodos', () => {
       ]);
     });
 
+    it('sorts titles as people read them: accents ignored, numbers by value', () => {
+      const todos = [
+        buildTodo({ title: 'Task 10' }),
+        buildTodo({ title: 'fig' }),
+        buildTodo({ title: 'Task 2' }),
+        buildTodo({ title: 'Éclair' }),
+        buildTodo({ title: 'apple' }),
+      ];
+
+      expect(titles(queryTodos(todos, { sortBy: 'title' }, TODAY))).toEqual([
+        'apple',
+        'Éclair',
+        'fig',
+        'Task 2',
+        'Task 10',
+      ]);
+    });
+
     const withDueDates = [
       buildTodo({ title: 'no date' }),
       buildTodo({ title: 'later', dueDate: '2025-07-01' }),

@@ -34,6 +34,7 @@ describe('TodoService', () => {
         dueDate: '2025-06-20',
         isCompleted: false,
         createdAt: '2025-06-15T10:30:00.000Z',
+        isOverdue: false,
       });
     });
 
@@ -56,7 +57,7 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'First' });
       await service.create(OWNER, { title: 'Second' });
 
-      const titles = (await service.list(OWNER)).map((todo) => todo.title);
+      const titles = (await service.list(OWNER)).todos.map((todo) => todo.title);
 
       expect(titles).toEqual(['First', 'Second']);
     });
@@ -67,7 +68,7 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'Cherry' });
       await service.markCompleted(OWNER, apple.id);
 
-      const todos = await service.list(OWNER, {
+      const { todos } = await service.list(OWNER, {
         status: 'incomplete',
         sortBy: 'title',
         order: 'desc',
@@ -80,9 +81,43 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'Due yesterday', dueDate: '2025-06-14' });
       await service.create(OWNER, { title: 'Due today', dueDate: '2025-06-15' });
 
-      const overdue = await service.list(OWNER, { status: 'overdue' });
+      const { todos: overdue } = await service.list(OWNER, { status: 'overdue' });
 
       expect(overdue.map((todo) => todo.title)).toEqual(['Due yesterday']);
+    });
+
+    it('reports on every to-do whether it is overdue', async () => {
+      await service.create(OWNER, { title: 'Due yesterday', dueDate: '2025-06-14' });
+      await service.create(OWNER, { title: 'Due today', dueDate: '2025-06-15' });
+
+      const { todos } = await service.list(OWNER);
+
+      expect(todos.map((todo) => todo.isOverdue)).toEqual([true, false]);
+    });
+
+    it('returns one page of the matches, with how many matched in all', async () => {
+      for (const title of ['A', 'B', 'C', 'D', 'E']) await service.create(OWNER, { title });
+
+      const page = await service.list(OWNER, { sortBy: 'title', limit: 2, offset: 1 });
+
+      expect(page.todos.map((todo) => todo.title)).toEqual(['B', 'C']);
+      expect(page.total).toBe(5);
+    });
+
+    it('pages after filtering, so the total counts matches rather than every to-do', async () => {
+      await service.create(OWNER, { title: 'Late', dueDate: '2025-06-01' });
+      await service.create(OWNER, { title: 'Undated' });
+
+      const page = await service.list(OWNER, { status: 'overdue', limit: 10 });
+
+      expect(page.todos.map((todo) => todo.title)).toEqual(['Late']);
+      expect(page.total).toBe(1);
+    });
+
+    it('returns an empty page past the end', async () => {
+      await service.create(OWNER, { title: 'Only' });
+
+      expect(await service.list(OWNER, { offset: 5 })).toEqual({ todos: [], total: 1 });
     });
   });
 
@@ -135,6 +170,15 @@ describe('TodoService', () => {
       expect(reopened.isCompleted).toBe(false);
     });
 
+    it('stops a to-do being overdue once it is completed', async () => {
+      const created = await service.create(OWNER, { title: 'Late', dueDate: '2025-06-01' });
+      expect(created.isOverdue).toBe(true);
+
+      const completed = await service.markCompleted(OWNER, created.id);
+
+      expect(completed.isOverdue).toBe(false);
+    });
+
     it('is idempotent', async () => {
       const created = await service.create(OWNER, { title: 'Buy milk' });
 
@@ -157,7 +201,7 @@ describe('TodoService', () => {
       await service.delete(OWNER, created.id);
 
       await expect(service.get(OWNER, created.id)).rejects.toThrow(TodoNotFoundError);
-      expect(await service.list(OWNER)).toEqual([]);
+      expect(await service.list(OWNER)).toEqual({ todos: [], total: 0 });
     });
 
     it('rejects with TodoNotFoundError for an unknown id', async () => {

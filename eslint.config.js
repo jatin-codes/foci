@@ -33,12 +33,42 @@ export default tseslint.config(
       globals: { document: 'readonly', window: 'readonly', fetch: 'readonly' },
     },
     rules: {
-      // The client talks to the server over HTTP only; it keeps its own copy of the contract.
+      // The client talks to the server over HTTP only; the contract comes from shared/.
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             { group: ['**/server/**'], message: 'The client must not import server code.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['server/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/client/**'], message: 'The server must not import client code.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Both halves import the contract, so it may depend on neither of them, nor on any package.
+    files: ['shared/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^(?!\\.\\/)',
+              message: 'shared/ holds the contract only: no packages, no server or client code.',
+            },
           ],
         },
       ],

@@ -1,15 +1,10 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 interface AppConfig {
   port: number;
   dataFile: string;
   clientDir: string;
 }
-
-// server/src (dev) and server/dist (built) are both one level under server/,
-// so the built client sits at the same place relative to either.
-const DEFAULT_CLIENT_DIR = fileURLToPath(new URL('../../client/dist', import.meta.url));
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const port = Number(env.PORT ?? 3000);
@@ -20,6 +15,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     port,
     dataFile: path.resolve(env.DATA_FILE ?? 'data/todos.json'),
-    clientDir: path.resolve(env.CLIENT_DIR ?? DEFAULT_CLIENT_DIR),
+    // Relative paths resolve against the working directory: the project root, as for DATA_FILE.
+    clientDir: path.resolve(env.CLIENT_DIR ?? 'client/dist'),
   };
 }

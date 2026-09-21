@@ -62,6 +62,11 @@
   color: var(--accent);
 }
 
+.todo-confirm-delete {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* A row with a write in flight: visibly inert, but it keeps its height so the
    list does not jump while the request is outstanding. */
 .todo.busy {

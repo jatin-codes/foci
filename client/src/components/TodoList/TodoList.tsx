@@ -34,7 +34,6 @@ export function TodoList({ query }: Props) {
           <TodoItem
             key={todo.id}
             todo={todo}
-            isOverdue={list.isOverdue(todo)}
             isBusy={list.isBusyRow(todo.id)}
             mode={list.modeFor(todo.id)}
             onModeChange={(mode) => list.openItemChange(todo.id, mode)}

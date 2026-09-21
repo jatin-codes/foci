@@ -1,10 +1,16 @@
 import { z } from 'zod';
-import { SORT_FIELDS, SORT_ORDERS, STATUS_FILTERS } from '../application/todoQuery.js';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  OWNER_HEADER,
+  OWNER_ID_MAX_LENGTH,
+  PAGE_SIZE_MAX,
+  SEARCH_MAX_LENGTH,
+  SORT_FIELDS,
+  SORT_ORDERS,
+  STATUS_FILTERS,
+  TITLE_MAX_LENGTH,
+} from '../../../shared/contract.js';
 import { isCalendarDate } from '../domain/calendarDate.js';
-
-const TITLE_MAX_LENGTH = 200;
-const DESCRIPTION_MAX_LENGTH = 2000;
-const SEARCH_MAX_LENGTH = 200;
 
 function text(field: string) {
   return z
@@ -50,6 +56,20 @@ function oneOf<const Values extends readonly [string, ...string[]]>(param: strin
   return z.enum(values, { error: `${param} must be one of: ${values.join(', ')}` }).optional();
 }
 
+/** A whole number read from the query string, which only ever holds text. */
+function integer(param: string, min: number, max = Number.MAX_SAFE_INTEGER) {
+  const message =
+    max === Number.MAX_SAFE_INTEGER
+      ? `${param} must be a whole number of at least ${min}`
+      : `${param} must be a whole number from ${min} to ${max}`;
+  return z
+    .string()
+    .regex(/^\d+$/, message)
+    .transform(Number)
+    .pipe(z.number().int().min(min, message).max(max, message))
+    .optional();
+}
+
 // Unknown query parameters are ignored, as is conventional for query strings.
 export const listTodosQuerySchema = z.object({
   status: oneOf('status', STATUS_FILTERS),
@@ -60,9 +80,9 @@ export const listTodosQuerySchema = z.object({
     .trim()
     .max(SEARCH_MAX_LENGTH, `search must be at most ${SEARCH_MAX_LENGTH} characters`)
     .optional(),
+  limit: integer('limit', 1, PAGE_SIZE_MAX),
+  offset: integer('offset', 0),
 });
-
-export const OWNER_HEADER = 'X-Owner-Id';
 
 /**
  * Names whose list a request is for. This scopes data; it does not protect it -
@@ -78,4 +98,4 @@ export const ownerIdSchema = z
   })
   .trim()
   .min(1, `${OWNER_HEADER} must not be empty`)
-  .max(100, `${OWNER_HEADER} must be at most 100 characters`);
+  .max(OWNER_ID_MAX_LENGTH, `${OWNER_HEADER} must be at most ${OWNER_ID_MAX_LENGTH} characters`);

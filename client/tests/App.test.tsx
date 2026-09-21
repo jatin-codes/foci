@@ -9,6 +9,12 @@ function rowFor(title: string) {
   return screen.getByText(title).closest('li')!;
 }
 
+/** Deleting takes a click on × and then a confirmation. */
+async function deleteTodo(title: string) {
+  await userEvent.click(screen.getByRole('button', { name: `Delete ${title}` }));
+  await userEvent.click(screen.getByRole('button', { name: `Confirm delete ${title}` }));
+}
+
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fakeApi());
@@ -25,6 +31,17 @@ describe('App', () => {
       expect(await screen.findByText('Write README')).toBeInTheDocument();
       expect(screen.getByText(/due 2025-06-20/)).toBeInTheDocument();
       expect(screen.getByText('1 to-do')).toBeInTheDocument();
+    });
+
+    it('flags a to-do as overdue when the server says it is', async () => {
+      renderApp([
+        buildTodo({ id: 'a', title: 'Late', dueDate: '2025-06-01', isOverdue: true }),
+        buildTodo({ id: 'b', title: 'On time', dueDate: '2025-06-01', isOverdue: false }),
+      ]);
+      await screen.findByText('Late');
+
+      expect(within(rowFor('Late')).getByText(/overdue/)).toBeInTheDocument();
+      expect(within(rowFor('On time')).queryByText(/overdue/)).not.toBeInTheDocument();
     });
 
     it('shows a message when there is nothing to do', async () => {
@@ -90,13 +107,26 @@ describe('App', () => {
   });
 
   describe('deleting', () => {
-    it('removes a to-do', async () => {
+    it('removes a to-do once the delete is confirmed', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })]);
+      await screen.findByText('Buy milk');
+
+      await deleteTodo('Buy milk');
+
+      await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
+    });
+
+    it('asks first, and keeps the to-do when the user backs out', async () => {
       renderApp([buildTodo({ title: 'Buy milk' })]);
       await screen.findByText('Buy milk');
 
       await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+      expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
 
-      await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: 'Keep Buy milk' }));
+
+      expect(screen.getByText('Buy milk')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Delete Buy milk' })).toBeInTheDocument();
     });
   });
 
@@ -120,12 +150,12 @@ describe('App', () => {
       renderApp([buildTodo({ title: 'Buy milk' })], { hold: inFlight });
       await screen.findByText('Buy milk');
 
-      await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+      await deleteTodo('Buy milk');
 
       const row = rowFor('Buy milk');
       await waitFor(() => expect(row).toHaveAttribute('aria-busy', 'true'));
       expect(within(row).getByRole('checkbox')).toBeDisabled();
-      expect(within(row).getByRole('button', { name: 'Delete Buy milk' })).toBeDisabled();
+      expect(within(row).getByRole('button', { name: 'Confirm delete Buy milk' })).toBeDisabled();
 
       release();
       await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
@@ -157,12 +187,12 @@ describe('App', () => {
       renderApp([buildTodo({ title: 'Buy milk' })], { failWrites: 1 });
       await screen.findByText('Buy milk');
 
-      await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+      await deleteTodo('Buy milk');
 
       expect(await screen.findByRole('alert')).toHaveTextContent(WRITE_FAILURE_MESSAGE);
       expect(screen.getByText('Buy milk')).toBeInTheDocument();
 
-      await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Confirm delete Buy milk' }));
 
       await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();

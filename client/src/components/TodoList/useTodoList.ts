@@ -4,13 +4,14 @@ import { send } from '../../api/http.js';
 import { todoKeys } from '../../api/queryClient.js';
 import type { Todo, TodoEdits, TodoListQuery } from '../../api/types.js';
 import { useInvalidateTodos } from '../../hooks/useInvalidateTodos.js';
-import { isOverdue, todayAsCalendarDate } from '../../utils/date.js';
-import type { ItemMode } from './TodoItem/TodoItem.js';
+
+/** A row is collapsed, showing its details, or being edited - never two at once. */
+export type ItemMode = 'collapsed' | 'details' | 'editing';
 
 function queryString(query: TodoListQuery): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== '') params.set(key, value);
+    if (value !== undefined && value !== '') params.set(key, String(value));
   }
   return params.size === 0 ? '' : `?${params}`;
 }
@@ -90,8 +91,6 @@ export function useTodoList(query: TodoListQuery) {
     }
   }
 
-  const today = todayAsCalendarDate();
-
   return {
     todos: list.data ?? [],
     isLoading: list.isPending,
@@ -103,7 +102,6 @@ export function useTodoList(query: TodoListQuery) {
     loadError: list.error ? messageFor(list.error, 'Could not load to-dos') : null,
     /** A write failed; the list is still shown. */
     writeError,
-    isOverdue: (todo: Todo) => isOverdue(todo, today),
     modeFor: (id: string): ItemMode => (openItem?.id === id ? openItem.mode : 'collapsed'),
     openItemChange: (id: string, mode: ItemMode) =>
       setOpenItem(mode === 'collapsed' ? null : { id, mode }),

@@ -1,3 +1,4 @@
+import { SEARCH_MAX_LENGTH } from '../../api/types.js';
 import './SearchBar.css';
 import { useSearchBar } from './useSearchBar.js';
 
@@ -15,7 +16,7 @@ export function SearchBar(props: SearchBarProps) {
         type="search"
         placeholder="Search to-dos…"
         aria-label="Search to-dos"
-        maxLength={200}
+        maxLength={SEARCH_MAX_LENGTH}
         value={value}
         onChange={(event) => setValue(event.target.value)}
       />

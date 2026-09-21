@@ -9,6 +9,7 @@ export function buildTodo(overrides: Partial<Todo> = {}): Todo {
     dueDate: null,
     isCompleted: false,
     createdAt: '2025-01-01T09:00:00.000Z',
+    isOverdue: false,
     ...overrides,
   };
 }

@@ -2,11 +2,14 @@ import express, { type Express } from 'express';
 import type { TodoService } from '../application/todoService.js';
 import { createTodoApiRouter } from './api/todoApiRouter.js';
 import { errorHandler, notFoundHandler } from './errorHandler.js';
+import { requestLogger } from './requestLogger.js';
 import { serveClient } from './serveClient.js';
 
 interface AppOptions {
   /** Directory holding the built React app. Omitted, the app serves the API only. */
   clientDir?: string;
+  /** Receives one line per request. Omitted, requests are not logged - as in tests. */
+  log?: (line: string) => void;
 }
 
 /**
@@ -19,6 +22,7 @@ interface AppOptions {
 export function createApp(todoService: TodoService, options: AppOptions = {}): Express {
   const app = express();
   app.disable('x-powered-by');
+  if (options.log) app.use(requestLogger(options.log));
   app.use(express.json());
 
   app.get('/health', (_req, res) => {

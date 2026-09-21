@@ -1,21 +1,8 @@
+import type { SortField, StatusFilter, TodoListQuery } from '../../../shared/contract.js';
 import { isOverdue, type Todo } from '../domain/todo.js';
 
-export const STATUS_FILTERS = ['all', 'completed', 'incomplete', 'overdue'] as const;
-export const SORT_FIELDS = ['createdAt', 'dueDate', 'title'] as const;
-export const SORT_ORDERS = ['asc', 'desc'] as const;
-
-export type StatusFilter = (typeof STATUS_FILTERS)[number];
-export type SortField = (typeof SORT_FIELDS)[number];
-export type SortOrder = (typeof SORT_ORDERS)[number];
-
-/** Omitted options fall back to: every to-do, oldest first, unsearched. */
-export interface TodoListQuery {
-  status?: StatusFilter;
-  sortBy?: SortField;
-  order?: SortOrder;
-  /** Free text matched against title and description. */
-  search?: string;
-}
+// The filter and sort vocabulary is part of the API contract, so it is defined there.
+export type { TodoListQuery };
 
 const matchesStatus: Record<StatusFilter, (todo: Todo, today: string) => boolean> = {
   all: () => true,
@@ -38,11 +25,21 @@ function matchesSearch(todo: Todo, search: string): boolean {
   );
 }
 
-// ISO timestamps and calendar dates sort chronologically as plain strings.
 const sortKey: Record<SortField, (todo: Todo) => string | null> = {
   createdAt: (todo) => todo.createdAt,
   dueDate: (todo) => todo.dueDate,
-  title: (todo) => todo.title.toLowerCase(),
+  title: (todo) => todo.title,
+};
+
+const compareStrings = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+// ISO timestamps and calendar dates sort chronologically as plain strings. Titles are sorted
+// the way people read them: ignoring case and accents, with "Task 2" before "Task 10". The
+// locale is fixed so the order does not depend on the machine the server runs on.
+const compareKeys: Record<SortField, (a: string, b: string) => number> = {
+  createdAt: compareStrings,
+  dueDate: compareStrings,
+  title: new Intl.Collator('en', { sensitivity: 'base', numeric: true }).compare,
 };
 
 /** Filters and sorts without mutating the input. `today` is a YYYY-MM-DD calendar date. */
@@ -50,6 +47,7 @@ export function queryTodos(todos: readonly Todo[], query: TodoListQuery, today: 
   const { status = 'all', sortBy = 'createdAt', order = 'asc', search = '' } = query;
   const direction = order === 'asc' ? 1 : -1;
   const keyOf = sortKey[sortBy];
+  const compare = compareKeys[sortBy];
 
   return todos
     .filter((todo) => matchesStatus[status](todo, today) && matchesSearch(todo, search))
@@ -59,6 +57,6 @@ export function queryTodos(todos: readonly Todo[], query: TodoListQuery, today: 
       if (keyA === keyB) return 0; // the sort is stable, so ties keep their creation order
       if (keyA === null) return 1; // to-dos without a value go last, whatever the direction
       if (keyB === null) return -1;
-      return keyA < keyB ? -direction : direction;
+      return compare(keyA, keyB) * direction;
     });
 }

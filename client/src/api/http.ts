@@ -1,4 +1,5 @@
-export const OWNER_HEADER = 'X-Owner-Id';
+import { OWNER_HEADER } from './types.js';
+
 const OWNER_STORAGE_KEY = 'todo.ownerId';
 
 let sessionOwnerId: string | undefined;

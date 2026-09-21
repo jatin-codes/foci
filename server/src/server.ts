@@ -11,7 +11,10 @@ const todoService = new TodoService(new JsonFileTodoRepository(config.dataFile))
 
 // In development the client is served by Vite, so there is no build to serve here.
 const hasClientBuild = existsSync(config.clientDir);
-const app = createApp(todoService, hasClientBuild ? { clientDir: config.clientDir } : {});
+const app = createApp(todoService, {
+  log: console.log,
+  ...(hasClientBuild ? { clientDir: config.clientDir } : {}),
+});
 
 const server = app.listen(config.port, () => {
   console.log(`To-do app listening on http://localhost:${config.port}`);
@@ -19,8 +22,16 @@ const server = app.listen(config.port, () => {
   if (!hasClientBuild) console.log('No client build found; run "npm run dev:client" for the UI.');
 });
 
+// On shutdown, stop accepting connections and let requests in flight finish. Idle keep-alive
+// connections would otherwise hold close() open indefinitely, so they are dropped at once, and
+// anything still running after the grace period is cut off.
+const SHUTDOWN_GRACE_MS = 10_000;
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, () => {
+  process.once(signal, () => {
+    console.log(`${signal} received; shutting down`);
     server.close(() => process.exit(0));
+    server.closeIdleConnections();
+    setTimeout(() => server.closeAllConnections(), SHUTDOWN_GRACE_MS).unref();
   });
 }

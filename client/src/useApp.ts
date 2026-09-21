@@ -15,7 +15,7 @@ export function useApp() {
 
   return {
     query,
-    changeQuery: (change: Partial<Query>) => setQuery({ ...query, ...change }),
+    changeQuery: (change: Partial<Query>) => setQuery((current) => ({ ...current, ...change })),
     onSearch: useCallback((next: string) => setSearch(next), []),
     listQuery: { ...query, search },
   };

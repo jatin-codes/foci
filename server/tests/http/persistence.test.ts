@@ -5,7 +5,7 @@ import supertest from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TodoService } from '../../src/application/todoService.js';
 import { createApp } from '../../src/http/app.js';
-import { OWNER_HEADER } from '../../src/http/schemas.js';
+import { OWNER_HEADER } from '../../../shared/contract.js';
 import { JsonFileTodoRepository } from '../../src/infrastructure/jsonFileTodoRepository.js';
 
 /** End-to-end check of the production wiring: HTTP -> service -> JSON file. */

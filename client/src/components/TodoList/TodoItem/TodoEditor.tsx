@@ -1,4 +1,9 @@
-import type { Todo, TodoEdits } from '../../../api/types.js';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  TITLE_MAX_LENGTH,
+  type Todo,
+  type TodoEdits,
+} from '../../../api/types.js';
 import { useTodoEditor } from './useTodoEditor.js';
 
 interface Props {
@@ -15,14 +20,14 @@ export function TodoEditor({ todo, onSave, onCancel }: Props) {
       <input
         aria-label="Title"
         value={editor.title}
-        maxLength={200}
+        maxLength={TITLE_MAX_LENGTH}
         onChange={(event) => editor.setTitle(event.target.value)}
         autoFocus
       />
       <textarea
         aria-label="Description"
         placeholder="Description (optional)"
-        maxLength={2000}
+        maxLength={DESCRIPTION_MAX_LENGTH}
         rows={2}
         value={editor.description}
         onChange={(event) => editor.setDescription(event.target.value)}

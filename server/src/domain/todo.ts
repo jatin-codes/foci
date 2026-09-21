@@ -9,6 +9,11 @@ export interface Todo {
   readonly createdAt: string;
 }
 
+/** A to-do as callers see it: the stored fields plus what follows from them today. */
+export interface TodoView extends Todo {
+  readonly isOverdue: boolean;
+}
+
 export interface CreateTodoInput {
   title: string;
   description?: string | null;
@@ -33,4 +38,9 @@ export function applyChanges(todo: Todo, changes: TodoChanges): Todo {
 /** A to-do is overdue once its due date has passed without it being completed. */
 export function isOverdue(todo: Todo, today: string): boolean {
   return !todo.isCompleted && todo.dueDate !== null && todo.dueDate < today;
+}
+
+/** Derived fields are computed on read, never stored, so they cannot go stale. */
+export function toView(todo: Todo, today: string): TodoView {
+  return { ...todo, isOverdue: isOverdue(todo, today) };
 }

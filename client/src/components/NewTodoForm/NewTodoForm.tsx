@@ -1,3 +1,4 @@
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '../../api/types.js';
 import './NewTodoForm.css';
 import { useNewTodoForm } from './useNewTodoForm.js';
 
@@ -10,7 +11,7 @@ export function NewTodoForm() {
         <input
           name="title"
           placeholder="What needs doing?"
-          maxLength={200}
+          maxLength={TITLE_MAX_LENGTH}
           value={form.title}
           onChange={(event) => form.setTitle(event.target.value)}
           autoFocus
@@ -30,7 +31,7 @@ export function NewTodoForm() {
           name="description"
           aria-label="Description"
           placeholder="Description (optional)"
-          maxLength={2000}
+          maxLength={DESCRIPTION_MAX_LENGTH}
           rows={2}
           value={form.description}
           onChange={(event) => form.setDescription(event.target.value)}

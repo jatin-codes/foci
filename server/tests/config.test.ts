@@ -8,7 +8,7 @@ describe('loadConfig', () => {
 
     expect(config.port).toBe(3000);
     expect(config.dataFile).toBe(path.resolve('data/todos.json'));
-    expect(config.clientDir).toMatch(/client[/\\]dist$/);
+    expect(config.clientDir).toBe(path.resolve('client/dist'));
   });
 
   it('reads every setting from the environment', () => {

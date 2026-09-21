@@ -3,7 +3,7 @@ import supertest from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TodoService } from '../../../src/application/todoService.js';
 import { createApp } from '../../../src/http/app.js';
-import { OWNER_HEADER } from '../../../src/http/schemas.js';
+import { OWNER_HEADER } from '../../../../shared/contract.js';
 import { InMemoryTodoRepository } from '../../../src/infrastructure/inMemoryTodoRepository.js';
 
 const NOW = new Date('2025-06-15T10:30:00.000Z');
@@ -44,6 +44,7 @@ describe('To-do API', () => {
         dueDate: '2025-06-20',
         isCompleted: false,
         createdAt: '2025-06-15T10:30:00.000Z',
+        isOverdue: false,
       });
       expect(response.headers.location).toBe(`/todos/${response.body.id}`);
     });
@@ -155,6 +156,20 @@ describe('To-do API', () => {
       expect(response.body.map((todo: { title: string }) => todo.title)).toEqual(['Late']);
     });
 
+    it('reports on each to-do whether it is overdue, so clients need not work it out', async () => {
+      await createTodo({ title: 'Late', dueDate: '2025-06-14' });
+      await createTodo({ title: 'Due today', dueDate: '2025-06-15' });
+      await createTodo({ title: 'Undated' });
+
+      const response = await request.get('/todos');
+
+      expect(response.body.map((todo: { isOverdue: boolean }) => todo.isOverdue)).toEqual([
+        true,
+        false,
+        false,
+      ]);
+    });
+
     it('sorts by the requested field and order', async () => {
       await createTodo({ title: 'Later', dueDate: '2025-07-01' });
       await createTodo({ title: 'Undated' });
@@ -193,11 +208,35 @@ describe('To-do API', () => {
       expect(response.body.map((todo: { title: string }) => todo.title)).toEqual(['Buy bread']);
     });
 
+    it('returns every match with the total when no limit is given', async () => {
+      await createTodo({ title: 'First' });
+      await createTodo({ title: 'Second' });
+
+      const response = await request.get('/todos');
+
+      expect(response.body).toHaveLength(2);
+      expect(response.headers['x-total-count']).toBe('2');
+    });
+
+    it('pages with limit and offset, reporting the total across every page', async () => {
+      for (const title of ['A', 'B', 'C', 'D', 'E']) await createTodo({ title });
+
+      const response = await request.get('/todos?sortBy=title&limit=2&offset=2');
+
+      expect(response.body.map((todo: { title: string }) => todo.title)).toEqual(['C', 'D']);
+      expect(response.headers['x-total-count']).toBe('5');
+    });
+
     it.each([
-      ['status=done', 'status', 'status must be one of: all, completed, incomplete, overdue'],
+      ['status=done', 'status', 'status must be one of: all, incomplete, completed, overdue'],
       ['sortBy=priority', 'sortBy', 'sortBy must be one of: createdAt, dueDate, title'],
       ['order=up', 'order', 'order must be one of: asc, desc'],
       [`search=${'x'.repeat(201)}`, 'search', 'search must be at most 200 characters'],
+      ['limit=0', 'limit', 'limit must be a whole number from 1 to 100'],
+      ['limit=101', 'limit', 'limit must be a whole number from 1 to 100'],
+      ['limit=ten', 'limit', 'limit must be a whole number from 1 to 100'],
+      ['limit=2.5', 'limit', 'limit must be a whole number from 1 to 100'],
+      ['offset=-1', 'offset', 'offset must be a whole number of at least 0'],
     ])('rejects ?%s with 400', async (queryString, path, message) => {
       const response = await request.get(`/todos?${queryString}`);
 
@@ -414,6 +453,37 @@ describe('To-do API', () => {
       });
       expect(logged).toHaveBeenCalledWith(failure);
       logged.mockRestore();
+    });
+  });
+
+  describe('request logging', () => {
+    it('logs each request with its status and duration, when given a logger', async () => {
+      const log = vi.fn();
+      const logged = agentFor(
+        createApp(new TodoService(new InMemoryTodoRepository()), { log }),
+        'owner-1',
+      );
+
+      await logged.get('/todos?status=all').expect(200);
+      await logged.get('/todos/missing').expect(404);
+
+      expect(log.mock.calls.map(([line]) => line)).toEqual([
+        expect.stringMatching(/^GET \/todos\?status=all 200 \d+ms$/),
+        expect.stringMatching(/^GET \/todos\/missing 404 \d+ms$/),
+      ]);
+    });
+
+    it('leaves the owner id out of the log', async () => {
+      const log = vi.fn();
+      const logged = agentFor(
+        createApp(new TodoService(new InMemoryTodoRepository()), { log }),
+        'secret-owner',
+      );
+
+      await logged.get('/todos').expect(200);
+
+      expect(log).toHaveBeenCalledOnce();
+      expect(log.mock.calls[0]![0]).not.toContain('secret-owner');
     });
   });
 

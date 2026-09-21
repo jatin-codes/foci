@@ -7,6 +7,7 @@ browser gets its own list.
 ```
 client/   React SPA, bundled by Vite
 server/   Express API, layered domain / application / infrastructure / http
+shared/   The API contract both halves import: wire types, accepted values, field limits
 ```
 
 ## Getting started
@@ -34,10 +35,15 @@ npm start          # http://localhost:3000 serves both
 In production Express serves the built client itself, so there is one process, one port and no
 CORS.
 
-| Environment variable | Default       | Purpose                             |
-| -------------------- | ------------- | ----------------------------------- |
-| `PORT`               | `3000`        | Port the server listens on          |
-| `CLIENT_DIR`         | `client/dist` | Where the built client is read from |
+| Environment variable | Default           | Purpose                             |
+| -------------------- | ----------------- | ----------------------------------- |
+| `PORT`               | `3000`            | Port the server listens on          |
+| `DATA_FILE`          | `data/todos.json` | Where to-dos are stored             |
+| `CLIENT_DIR`         | `client/dist`     | Where the built client is read from |
+
+Relative paths resolve against the working directory, so run `npm start` from the project root.
+The server logs one line per request, and on `SIGTERM` it finishes the requests in flight before
+exiting.
 
 ### With Docker
 
@@ -72,15 +78,15 @@ Every operation is available from the page:
 | **Update**     | `Edit` opens title, description and due date         |
 | **Complete**   | The checkbox                                         |
 | **Incomplete** | The checkbox again                                   |
-| **Delete**     | `×`                                                  |
+| **Delete**     | `×`, then `Delete` to confirm (`Keep` backs out)     |
 | **Search**     | Free text over title and description                 |
 | **Filter**     | All / Incomplete / Completed / Overdue               |
 | **Sort**       | Created, due date or title; `↑`/`↓` reverses         |
 
 Search, filtering and sorting are applied by the API, not in the browser, so the rules live in one
 place and the page cannot disagree with a direct API call. Typing in the search box is debounced,
-so a request goes out once you pause rather than on every keystroke. Every action re-reads the list, so the screen
-always reflects what the server holds.
+so a request goes out once you pause rather than on every keystroke. Every action re-reads the
+list, so the screen always reflects what the server holds.
 
 ## API
 
@@ -95,7 +101,7 @@ an id on first load and keeps it in `localStorage`, so each browser sees only it
 | Method   | Path                     | Description                        | Success          |
 | -------- | ------------------------ | ---------------------------------- | ---------------- |
 | `POST`   | `/todos`                 | Add a to-do                        | `201` + the item |
-| `GET`    | `/todos`                 | List to-dos (filterable, sortable) | `200` + array    |
+| `GET`    | `/todos`                 | List to-dos (filter, sort, page)   | `200` + array    |
 | `GET`    | `/todos/{id}`            | View one to-do                     | `200` + the item |
 | `PATCH`  | `/todos/{id}`            | Update title, description, dueDate | `200` + the item |
 | `POST`   | `/todos/{id}/complete`   | Mark as completed                  | `200` + the item |
@@ -112,9 +118,13 @@ an id on first load and keeps it in `localStorage`, so each browser sees only it
   "description": null,
   "dueDate": "2025-01-10",
   "isCompleted": false,
-  "createdAt": "2025-01-02T18:16:09.470Z"
+  "createdAt": "2025-01-02T18:16:09.470Z",
+  "isOverdue": true
 }
 ```
+
+`isOverdue` is worked out by the server on every read and never stored, so clients do not need
+their own copy of the rule or a clock that agrees with the server's.
 
 ### Request bodies
 
@@ -129,23 +139,30 @@ an id on first load and keeps it in `localStorage`, so each browser sees only it
 - Unknown fields are rejected rather than silently ignored. That includes `isCompleted`, `id` and
   `createdAt`: completion has its own endpoints, and the other two are read-only.
 
-### Searching, filtering and sorting
+### Searching, filtering, sorting and paging
 
 `GET /todos` accepts these optional query parameters:
 
 | Parameter | Values                                      | Default     |
 | --------- | ------------------------------------------- | ----------- |
-| `status`  | `all`, `completed`, `incomplete`, `overdue` | `all`       |
+| `status`  | `all`, `incomplete`, `completed`, `overdue` | `all`       |
 | `sortBy`  | `createdAt`, `dueDate`, `title`             | `createdAt` |
 | `order`   | `asc`, `desc`                               | `asc`       |
 | `search`  | free text, up to 200 characters             | none        |
+| `limit`   | a whole number from 1 to 100                | every match |
+| `offset`  | a whole number, 0 or more                   | `0`         |
 
 `search` is a case-insensitive substring match against **title and description**, combined with
 `status` rather than replacing it. It is a find-as-you-type filter, not a search engine: accents
 and word stems are not normalised.
 
 A to-do is **overdue** when it is incomplete and its due date is before today. When sorting by
-due date, to-dos without one always come last.
+due date, to-dos without one always come last. Titles sort as people read them: case and
+accents are ignored, and "Task 2" comes before "Task 10".
+
+Paging applies after filtering and sorting. Every response carries **`X-Total-Count`**, the number
+of to-dos that matched across all pages. Leaving `limit` out returns every match, which is what
+the web page does.
 
 ### Errors
 
@@ -177,6 +194,7 @@ curl -X POST localhost:3000/todos -H 'Content-Type: application/json' \
 
 curl 'localhost:3000/todos?status=overdue&sortBy=dueDate'
 curl 'localhost:3000/todos?search=milk'
+curl -i 'localhost:3000/todos?sortBy=title&limit=20&offset=20'   # page 2; see X-Total-Count
 curl -X PATCH localhost:3000/todos/<id> -H 'Content-Type: application/json' \
   -d '{"description": "Cover design and trade-offs", "dueDate": null}'
 curl -X POST localhost:3000/todos/<id>/complete
@@ -197,9 +215,8 @@ client/
     ├── api/                  the network boundary
     │   ├── http.ts               the only place that calls fetch; names this browser's list
     │   ├── queryClient.ts        cache configuration and query keys
-    │   └── types.ts              the client's own copy of the API contract
+    │   └── types.ts              the contract from shared/, plus the client's request types
     ├── hooks/                hooks used by more than one component
-    ├── utils/                pure helpers
     └── components/           nested the way the page renders them
         ├── NewTodoForm/          .tsx, .css, and a hook for its state
         ├── SearchBar/
@@ -214,9 +231,13 @@ server/
     │                     TodoRepository interface the service depends on.
     ├── infrastructure/   TodoRepository implementations: JSON file and in-memory.
     ├── http/             Express adapter: api/ router, shared validation, the single
-    │                     error-to-response mapping, and serveClient.ts.
+    │                     error-to-response mapping, request logging and serveClient.ts.
     ├── config.ts         Environment parsing.
     └── server.ts         Composition root – the only file that knows every concrete class.
+
+shared/
+└── contract.ts           What travels over HTTP: the to-do resource, list query, accepted
+                          filter/sort values, field limits and header names. No dependencies.
 ```
 
 On the server, dependencies point inwards only: `http` → `application` → `domain`, with
@@ -240,8 +261,8 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   `createApp(service)` builds the app without listening, so tests can drive it in-process.
 - **Validation happens once, at the boundary** (Zod schemas in `http/schemas.ts`). The schemas also
   normalise input (trimming, blank description → `null`), so the service can trust its typed
-  arguments. The allowed filter/sort values are defined once in the application layer and reused by
-  the schema, so the two cannot drift apart.
+  arguments. The allowed filter/sort values and field limits come from `shared/contract.ts`, so the
+  schema, the use cases and the client cannot drift apart.
 - **Repository updates are atomic.** The repository exposes `update(id, changes)` rather than
   `get` + `save`, so concurrent requests such as "complete" and "rename" on the same item cannot
   overwrite each other's changes. The file repository queues its operations to guarantee this, and
@@ -276,14 +297,16 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   state, and nothing has a barrel file, because a re-export is not a boundary.
 - **Styles are scoped by ownership.** `styles.css` holds design tokens and the few primitives
   more than one component uses; everything else sits next to the component that renders it.
-- **Business rules stay on the server.** Searching, filtering and sorting are query parameters,
-  not array operations in the browser, so the SPA and a direct API client see identical results.
-- **The client never imports server code.** `client/src/api/types.ts` declares the API
-  contract the client relies on - the to-do shape and the accepted filter and sort values -
-  so the two halves build and deploy independently, and an ESLint rule rejects any import from
-  `server/`. The cost is a second copy of the contract: a change to the API must be made in
-  both places, with the README's API section as the reference. It holds the contract and
-  nothing else: UI copy such as the sort-field labels lives with the component that renders it.
+- **Business rules stay on the server.** Searching, filtering, sorting and the overdue rule all
+  run there: the list arrives filtered and each to-do says whether it is overdue, so the SPA and a
+  direct API client see identical results and the browser holds no copy of the rules.
+- **One contract, imported by both halves.** `shared/contract.ts` defines what travels over HTTP:
+  the to-do resource, the list query, the accepted values, the field limits and the header names.
+  It is plain types and constants, so importing it couples neither half to the other's code.
+  ESLint enforces the boundaries: the client may not import `server/`, the server may not import
+  `client/`, and `shared/` may import nothing. The router checks every response body against the
+  contract with `satisfies`, so changing what the server sends without changing the contract is a
+  compile error. UI copy such as the sort-field labels stays with the component that renders it.
 - **A failed write does not hide the list.** A load failure replaces the list, because there is
   nothing to show; a failed add, edit, toggle or delete is reported above it, and the next write
   clears it. A failed save leaves the form open with the draft intact, so nothing is retyped.
@@ -311,9 +334,10 @@ Tests are organised as a pyramid, mirroring the source layout under `server/test
    additionally has tests for what is unique to it: persistence across instances, concurrent
    writes, directory creation and corrupted files.
 3. **API integration tests** using Supertest against the real Express app: every endpoint's happy
-   path, validation failures, 404s, malformed JSON and the 500 path.
+   path, validation failures, paging, 404s, malformed JSON, the 500 path and request logging.
 4. **Component tests** driving the React app through the DOM with Testing Library — list, add,
-   view, update, complete, delete, search and filter — against a stubbed `fetch`. The stub can
+   view, update, complete, delete (and backing out of it), search and filter — against a stubbed
+   `fetch`. The stub can
    hold a request open, so the in-flight state is asserted rather than assumed, and can fail
    writes, so what the user sees after a server error is tested too.
 5. **One end-to-end test** wires HTTP → service → JSON file exactly as production does and
@@ -366,8 +390,41 @@ internal calls, so the internals can be refactored freely.
   manual race guard and a manual refetch after every write, neither of which covered per-write
   pending state or caching.
 - **React for an interface this simple.** The brief lists SPA as an option and it earns the
-  interactive editing and filtering, but it adds a build step and a ~70 kB gzipped bundle to what
+  interactive editing and filtering, but it adds a build step and a ~80 kB gzipped bundle to what
   server-rendered HTML could do with no client JavaScript at all.
-- **No end-to-end browser test.** The layers are covered from both sides — Supertest against the
+- **A shared contract module rather than generated types.** `shared/` is one hand-written file
+  both halves compile against, which is simple and catches drift at build time. It does not
+  describe the API to anyone outside this repository; an OpenAPI document would.
+- **A confirmation step rather than undo for deletes.** Two clicks instead of one, but no
+  soft-delete state on the server. Undo is the friendlier pattern; see below.
+
+## Areas for improvement
+
+Roughly in the order I would take them on:
+
+- **An end-to-end browser test.** The layers are covered from both sides — Supertest against the
   real app, Testing Library against the real components — but nothing drives a real browser
-  against a real server. That is the gap I would close first with more time.
+  against a real server. A handful of Playwright tests (add, complete, edit, delete, filter)
+  would close that gap and catch wiring faults such as the Vite proxy or the production static
+  serving.
+- **Real authentication.** `X-Owner-Id` separates lists but secures nothing. Deriving the owner
+  from a session or token is a change to the HTTP layer only.
+- **A database.** SQLite or Postgres behind the existing `TodoRepository` interface would lift the
+  single-process limit, drop the whole-file read and write per operation, and move filtering,
+  sorting and paging into queries.
+- **Time zones.** Overdue is judged against the server's UTC date. The client could send its
+  time zone, or the server could store a due instant rather than a calendar date.
+- **Paging in the UI.** The API pages; the web page still asks for every match. Infinite scroll
+  or a "Load more" button is a client-only change.
+- **Undo instead of a delete confirmation**, and optimistic updates for the other writes, which
+  would hide network latency at the cost of a rollback path per write.
+- **Conflicting edits across tabs.** The last write wins. An `ETag` / `If-Match` check on `PATCH`
+  would detect a stale edit instead of silently overwriting it.
+- **An OpenAPI description** generated from the Zod schemas, for API consumers outside this repo
+  and for runtime validation of responses on the client, which currently trusts the JSON it
+  receives.
+- **Operational hardening.** Structured JSON logs with request ids, metrics, rate limiting and
+  security headers (for example with `helmet`) would all be expected before running this for
+  real users.
+- **CI gates.** A coverage threshold, an automated accessibility check (axe) in the component
+  tests, and a Docker build step to catch a broken image before it ships.

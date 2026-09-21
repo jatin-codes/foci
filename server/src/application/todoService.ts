@@ -1,8 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import { toCalendarDate } from '../domain/calendarDate.js';
 import { TodoNotFoundError } from '../domain/errors.js';
-import type { CreateTodoInput, Todo, TodoChanges, UpdateTodoInput } from '../domain/todo.js';
+import {
+  toView,
+  type CreateTodoInput,
+  type Todo,
+  type TodoChanges,
+  type TodoView,
+  type UpdateTodoInput,
+} from '../domain/todo.js';
 import { queryTodos, type TodoListQuery } from './todoQuery.js';
+
+/** One page of a list, and how many to-dos matched in all. */
+export interface TodoPage {
+  todos: TodoView[];
+  total: number;
+}
 import type { TodoRepository } from './todoRepository.js';
 
 type Clock = () => Date;
@@ -19,7 +32,7 @@ export class TodoService {
     private readonly generateId: IdGenerator = randomUUID,
   ) {}
 
-  async create(ownerId: string, input: CreateTodoInput): Promise<Todo> {
+  async create(ownerId: string, input: CreateTodoInput): Promise<TodoView> {
     const todo: Todo = {
       id: this.generateId(),
       title: input.title,
@@ -29,29 +42,32 @@ export class TodoService {
       createdAt: this.clock().toISOString(),
     };
     await this.repository.add(ownerId, todo);
-    return todo;
+    return toView(todo, this.today());
   }
 
-  async list(ownerId: string, query: TodoListQuery = {}): Promise<Todo[]> {
-    const todos = await this.repository.list(ownerId);
-    return queryTodos(todos, query, toCalendarDate(this.clock()));
+  async list(ownerId: string, query: TodoListQuery = {}): Promise<TodoPage> {
+    const { limit, offset = 0 } = query;
+    const today = this.today();
+    const matching = queryTodos(await this.repository.list(ownerId), query, today);
+    const page = matching.slice(offset, limit === undefined ? undefined : offset + limit);
+    return { todos: page.map((todo) => toView(todo, today)), total: matching.length };
   }
 
-  async get(ownerId: string, id: string): Promise<Todo> {
+  async get(ownerId: string, id: string): Promise<TodoView> {
     const todo = await this.repository.get(ownerId, id);
     if (!todo) throw new TodoNotFoundError(id);
-    return todo;
+    return toView(todo, this.today());
   }
 
-  update(ownerId: string, id: string, changes: UpdateTodoInput): Promise<Todo> {
+  update(ownerId: string, id: string, changes: UpdateTodoInput): Promise<TodoView> {
     return this.applyChanges(ownerId, id, changes);
   }
 
-  markCompleted(ownerId: string, id: string): Promise<Todo> {
+  markCompleted(ownerId: string, id: string): Promise<TodoView> {
     return this.applyChanges(ownerId, id, { isCompleted: true });
   }
 
-  markIncomplete(ownerId: string, id: string): Promise<Todo> {
+  markIncomplete(ownerId: string, id: string): Promise<TodoView> {
     return this.applyChanges(ownerId, id, { isCompleted: false });
   }
 
@@ -60,9 +76,14 @@ export class TodoService {
     if (!removed) throw new TodoNotFoundError(id);
   }
 
-  private async applyChanges(ownerId: string, id: string, changes: TodoChanges): Promise<Todo> {
+  private async applyChanges(ownerId: string, id: string, changes: TodoChanges): Promise<TodoView> {
     const updated = await this.repository.update(ownerId, id, changes);
     if (!updated) throw new TodoNotFoundError(id);
-    return updated;
+    return toView(updated, this.today());
+  }
+
+  /** Overdue is judged against the clock's UTC calendar date. */
+  private today(): string {
+    return toCalendarDate(this.clock());
   }
 }

@@ -20,3 +20,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Builds the production image and checks the running container answers, so a broken
+  # Dockerfile fails here rather than on deploy.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t todo-app .
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name todo -p 3000:3000 todo-app
+          for attempt in $(seq 1 30); do curl -fs localhost:3000/health && break; sleep 1; done
+          curl -fs localhost:3000/health
+          curl -fs -X POST localhost:3000/todos -H 'X-Owner-Id: ci' \
+            -H 'Content-Type: application/json' -d '{"title":"Smoke test"}'
+          curl -fs localhost:3000/todos -H 'X-Owner-Id: ci' | grep -q 'Smoke test'
+          curl -fs localhost:3000/ | grep -q '<div id="root">'
+      - if: failure()
+        run: docker logs todo

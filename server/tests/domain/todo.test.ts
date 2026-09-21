@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyChanges, isOverdue } from '../../src/domain/todo.js';
+import { applyChanges, isOverdue, toView } from '../../src/domain/todo.js';
 import { buildTodo } from '../support/buildTodo.js';
 
 describe('isOverdue', () => {
@@ -34,5 +34,14 @@ describe('applyChanges', () => {
 
     expect(changed.title).toBe('After');
     expect(original.title).toBe('Before');
+  });
+});
+
+describe('toView', () => {
+  it('adds whether the to-do is overdue today, keeping every stored field', () => {
+    const todo = buildTodo({ dueDate: '2025-06-14' });
+
+    expect(toView(todo, '2025-06-15')).toEqual({ ...todo, isOverdue: true });
+    expect(toView(todo, '2025-06-14')).toEqual({ ...todo, isOverdue: false });
   });
 });
