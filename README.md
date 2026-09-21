@@ -195,8 +195,7 @@ client/
     ├── useApp.ts             what the controls above the list have chosen
     ├── styles.css            design tokens and shared primitives only
     ├── api/                  the network boundary
-    │   ├── client.ts             the only place that calls fetch
-    │   ├── owner.ts              which list this browser sees
+    │   ├── http.ts               the only place that calls fetch; names this browser's list
     │   ├── queryClient.ts        cache configuration and query keys
     │   └── types.ts              the API contract, typed from the server
     ├── hooks/                hooks used by more than one component
@@ -257,8 +256,9 @@ On the server, dependencies point inwards only: `http` → `application` → `do
 - **In-flight writes are visible.** A row with a write outstanding is dimmed, marked
   `aria-busy`, and has its controls disabled, so a slow network reads as "working" rather than
   "nothing happened" - and a second click cannot race the first.
-- **The client has one seam to the network.** Only `api/client.ts` calls `fetch`; only `useTodos`
-  holds list state. Components take data and callbacks as props, so they render without a server.
+- **The client has one seam to the network.** Only `send()` in `api/http.ts` calls `fetch`, so
+  the owner header, JSON handling and error parsing live in one place. Each hook states its own
+  endpoints through it: the calls sit next to the query or mutation that uses them.
 - **A component owns its own data, not just its markup.** `TodoList` holds the list query and
   the writes its rows offer; `NewTodoForm` holds the one that adds. Nothing is threaded down
   from the page, because the query cache is what they share — the form invalidates the list
@@ -272,14 +272,11 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   `useTodoList`) because that is the part worth reading on its own. Everything else stays in
   the component: props types, presentational fragments such as the details panel, and the
   derived values a component needs to render. `TodoFilters` has no hook because it holds no
-  state, and nothing has a barrel file, because a re-export is not a boundary. Markup and behaviour are separated:
-  `NewTodoForm.tsx` renders what `useNewTodoForm.ts` returns and holds no state itself, so the
-  behaviour can be read - or tested - without reading JSX. A purely presentational component
-  such as `TodoDetails` has no hook, because inventing one would add a file and explain nothing.
+  state, and nothing has a barrel file, because a re-export is not a boundary.
 - **Styles are scoped by ownership.** `styles.css` holds design tokens and the few primitives
   more than one component uses; everything else sits next to the component that renders it.
-- **Business rules stay on the server.** Filtering and sorting are query parameters, not array
-  operations in the browser, so the SPA and a direct API client see identical results.
+- **Business rules stay on the server.** Searching, filtering and sorting are query parameters,
+  not array operations in the browser, so the SPA and a direct API client see identical results.
 - **The API contract is typed, not duplicated.** `client/src/api/types.ts` re-exports the
   server's `Todo` as a type-only import, so the two cannot disagree; nothing from the server is
   bundled. It holds the contract and nothing else: UI copy such as the sort-field labels lives
@@ -320,9 +317,11 @@ internal calls, so the internals can be refactored freely.
 
 ## Assumptions
 
-- **Single user, no authentication.** The API is unauthenticated and every client sees the same
-  list. Adding auth would mean a user id on the to-do and a filter in the repository, not a
-  different architecture.
+- **Lists are separated, not secured.** Each browser generates an id, keeps it in
+  `localStorage` and sends it as `X-Owner-Id`; the repository filters by it, so one browser never
+  sees another's to-dos. Nothing authenticates that header - anyone who knows an id can ask for
+  that list, and clearing site data loses it. Real accounts would derive the owner from an
+  authenticated session; only the HTTP layer would change.
 - **Owners are opaque strings, and the server invents none of them.** The API takes whatever
   id it is given rather than issuing one, which keeps the server stateless about identity and
   makes the tests trivial to write. It also means a client that loses its id starts empty.

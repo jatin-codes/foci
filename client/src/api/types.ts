@@ -11,3 +11,10 @@ export type {
 // The values the API accepts, in the order the UI offers them.
 export const STATUS_FILTERS = ['all', 'incomplete', 'completed', 'overdue'] as const;
 export const SORT_FIELDS = ['createdAt', 'dueDate', 'title'] as const;
+
+/** Fields the user may edit. `null` clears an optional field; omitting one leaves it. */
+export interface TodoEdits {
+  title?: string;
+  description?: string | null;
+  dueDate?: string | null;
+}

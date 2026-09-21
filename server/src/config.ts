@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export interface AppConfig {
+interface AppConfig {
   port: number;
   dataFile: string;
   clientDir: string;

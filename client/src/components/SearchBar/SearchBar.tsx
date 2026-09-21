@@ -1,7 +1,7 @@
 import './SearchBar.css';
 import { useSearchBar } from './useSearchBar.js';
 
-export interface SearchBarProps {
+interface SearchBarProps {
   /** Called with the settled search text, not with every keystroke. */
   onSearch: (search: string) => void;
 }

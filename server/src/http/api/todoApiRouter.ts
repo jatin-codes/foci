@@ -1,8 +1,17 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import type { TodoService } from '../../application/todoService.js';
-import { ownerOf } from '../owner.js';
-import { createTodoSchema, listTodosQuerySchema, updateTodoSchema } from '../schemas.js';
+import {
+  createTodoSchema,
+  listTodosQuerySchema,
+  OWNER_HEADER,
+  ownerIdSchema,
+  updateTodoSchema,
+} from '../schemas.js';
 import { validate } from '../validation.js';
+
+function ownerOf(req: Request): string {
+  return validate(ownerIdSchema, req.get(OWNER_HEADER));
+}
 
 /**
  * The JSON API. Every route acts on one owner's list, named by a header. Handlers

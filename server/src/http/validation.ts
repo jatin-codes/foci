@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-export interface ValidationIssue {
+interface ValidationIssue {
   /** Dot-separated path to the offending field; empty when the issue concerns the whole input. */
   path: string;
   message: string;

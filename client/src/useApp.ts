@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { SortField, SortOrder, StatusFilter } from './api/types.js';
 
-export interface Query {
+interface Query {
   status: StatusFilter;
   sortBy: SortField;
   order: SortOrder;

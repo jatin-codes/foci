@@ -1,5 +1,4 @@
-import type { TodoEdits } from '../../../api/client.js';
-import type { Todo } from '../../../api/types.js';
+import type { Todo, TodoEdits } from '../../../api/types.js';
 import { useTodoEditor } from './useTodoEditor.js';
 
 interface Props {

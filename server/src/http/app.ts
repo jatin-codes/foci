@@ -4,7 +4,7 @@ import { createTodoApiRouter } from './api/todoApiRouter.js';
 import { errorHandler, notFoundHandler } from './errorHandler.js';
 import { serveClient } from './serveClient.js';
 
-export interface AppOptions {
+interface AppOptions {
   /** Directory holding the built React app. Omitted, the app serves the API only. */
   clientDir?: string;
 }

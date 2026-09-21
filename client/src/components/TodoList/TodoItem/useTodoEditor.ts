@@ -1,6 +1,5 @@
 import { useState, type SubmitEvent } from 'react';
-import type { TodoEdits } from '../../../api/client.js';
-import type { Todo } from '../../../api/types.js';
+import type { Todo, TodoEdits } from '../../../api/types.js';
 
 /**
  * Holds the draft while a to-do is being edited, seeded from the to-do. A field

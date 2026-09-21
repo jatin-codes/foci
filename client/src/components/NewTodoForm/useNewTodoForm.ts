@@ -1,7 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
-import { api, type NewTodo } from '../../api/client.js';
+import { send } from '../../api/http.js';
+import type { Todo } from '../../api/types.js';
 import { useInvalidateTodos } from '../../hooks/useInvalidateTodos.js';
+
+interface NewTodo {
+  title: string;
+  description?: string;
+  dueDate?: string;
+}
 
 /**
  * The form's own state: the three draft fields, and the request that saves them.
@@ -15,7 +22,8 @@ export function useNewTodoForm() {
   const [showDescription, setShowDescription] = useState(false);
 
   const create = useMutation({
-    mutationFn: (todo: NewTodo) => api.create(todo),
+    mutationFn: (todo: NewTodo) =>
+      send<Todo>('/todos', { method: 'POST', body: JSON.stringify(todo) }),
     onSuccess: invalidate,
   });
 

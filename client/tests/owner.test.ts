@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { OWNER_HEADER, ownerId } from '../src/api/owner.js';
+import { OWNER_HEADER, ownerId } from '../src/api/http.js';
 
 describe('ownerId', () => {
   beforeEach(() => localStorage.clear());

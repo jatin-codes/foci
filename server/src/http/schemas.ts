@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { SORT_FIELDS, SORT_ORDERS, STATUS_FILTERS } from '../application/todoQuery.js';
 import { isCalendarDate } from '../domain/calendarDate.js';
 
-export const TITLE_MAX_LENGTH = 200;
-export const DESCRIPTION_MAX_LENGTH = 2000;
-export const SEARCH_MAX_LENGTH = 200;
+const TITLE_MAX_LENGTH = 200;
+const DESCRIPTION_MAX_LENGTH = 2000;
+const SEARCH_MAX_LENGTH = 200;
 
 function text(field: string) {
   return z
@@ -61,3 +61,21 @@ export const listTodosQuerySchema = z.object({
     .max(SEARCH_MAX_LENGTH, `search must be at most ${SEARCH_MAX_LENGTH} characters`)
     .optional(),
 });
+
+export const OWNER_HEADER = 'X-Owner-Id';
+
+/**
+ * Names whose list a request is for. This scopes data; it does not protect it -
+ * the id is client-supplied and checked against nothing. Real accounts would
+ * derive the owner from an authenticated session instead.
+ */
+export const ownerIdSchema = z
+  .string({
+    error: ({ input }) =>
+      input === undefined
+        ? `${OWNER_HEADER} header is required`
+        : `${OWNER_HEADER} must be a string`,
+  })
+  .trim()
+  .min(1, `${OWNER_HEADER} must not be empty`)
+  .max(100, `${OWNER_HEADER} must be at most 100 characters`);

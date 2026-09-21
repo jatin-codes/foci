@@ -14,7 +14,7 @@ const SORT_LABELS: Record<SortField, string> = {
   title: 'Title',
 };
 
-export interface TodoFiltersChange {
+interface TodoFiltersChange {
   status?: StatusFilter;
   sortBy?: SortField;
   order?: SortOrder;

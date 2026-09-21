@@ -3,7 +3,7 @@ import supertest from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TodoService } from '../../../src/application/todoService.js';
 import { createApp } from '../../../src/http/app.js';
-import { OWNER_HEADER } from '../../../src/http/owner.js';
+import { OWNER_HEADER } from '../../../src/http/schemas.js';
 import { InMemoryTodoRepository } from '../../../src/infrastructure/inMemoryTodoRepository.js';
 
 const NOW = new Date('2025-06-15T10:30:00.000Z');

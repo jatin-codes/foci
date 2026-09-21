@@ -1,11 +1,19 @@
 import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useState } from 'react';
-import { api, type TodoEdits } from '../../api/client.js';
+import { send } from '../../api/http.js';
 import { todoKeys } from '../../api/queryClient.js';
-import type { Todo, TodoListQuery } from '../../api/types.js';
+import type { Todo, TodoEdits, TodoListQuery } from '../../api/types.js';
 import { useInvalidateTodos } from '../../hooks/useInvalidateTodos.js';
 import { isOverdue, todayAsCalendarDate } from '../../utils/date.js';
 import type { ItemMode } from './TodoItem/TodoItem.js';
+
+function queryString(query: TodoListQuery): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, value);
+  }
+  return params.size === 0 ? '' : `?${params}`;
+}
 
 function messageFor(caught: unknown, fallback: string): string {
   return caught instanceof Error ? caught.message : fallback;
@@ -33,23 +41,24 @@ export function useTodoList(query: TodoListQuery) {
 
   const list = useQuery({
     queryKey: todoKeys.list(query),
-    queryFn: () => api.list(query),
+    queryFn: () => send<Todo[]>(`/todos${queryString(query)}`),
     placeholderData: keepPreviousData,
   });
 
   const edit = useMutation({
-    mutationFn: ({ id, edits }: { id: string; edits: TodoEdits }) => api.update(id, edits),
+    mutationFn: ({ id, edits }: { id: string; edits: TodoEdits }) =>
+      send<Todo>(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify(edits) }),
     onSuccess: invalidate,
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.remove(id),
+    mutationFn: (id: string) => send<void>(`/todos/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   });
 
   const setCompleted = useMutation({
     mutationFn: ({ id, isCompleted }: { id: string; isCompleted: boolean }) =>
-      api.setCompleted(id, isCompleted),
+      send<Todo>(`/todos/${id}/${isCompleted ? 'complete' : 'incomplete'}`, { method: 'POST' }),
     onSuccess: invalidate,
   });
 

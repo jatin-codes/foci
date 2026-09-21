@@ -5,8 +5,8 @@ import type { CreateTodoInput, Todo, TodoChanges, UpdateTodoInput } from '../dom
 import { queryTodos, type TodoListQuery } from './todoQuery.js';
 import type { TodoRepository } from './todoRepository.js';
 
-export type Clock = () => Date;
-export type IdGenerator = () => string;
+type Clock = () => Date;
+type IdGenerator = () => string;
 
 /**
  * The to-do use cases. Every one acts for a single owner, which is passed in
