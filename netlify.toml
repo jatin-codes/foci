@@ -1,0 +1,29 @@
+# Netlify hosts the React client; the API runs on Railway. The client calls relative paths
+# (/todos, /health), so these rewrites proxy them to Railway and the browser only ever sees
+# the Netlify domain: no CORS, no client changes.
+# Replace YOUR-API.up.railway.app with the domain Railway generates for the service.
+
+[build]
+  command = "npm run build:client"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/todos"
+  to = "https://YOUR-API.up.railway.app/todos"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/todos/*"
+  to = "https://YOUR-API.up.railway.app/todos/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "https://YOUR-API.up.railway.app/health"
+  status = 200
+  force = true
