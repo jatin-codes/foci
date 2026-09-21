@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildTodo, fakeApi } from './support/fakeApi.js';
+import { buildTodo, fakeApi, WRITE_FAILURE_MESSAGE } from './support/fakeApi.js';
 import { renderApp } from './support/renderApp.js';
 
 /** The row containing a to-do, so assertions do not leak into its neighbours. */
@@ -117,7 +117,7 @@ describe('App', () => {
     it('marks the row busy and refuses further clicks until it lands', async () => {
       let release!: () => void;
       const inFlight = new Promise<void>((resolve) => (release = resolve));
-      renderApp([buildTodo({ title: 'Buy milk' })], inFlight);
+      renderApp([buildTodo({ title: 'Buy milk' })], { hold: inFlight });
       await screen.findByText('Buy milk');
 
       await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
@@ -129,6 +129,68 @@ describe('App', () => {
 
       release();
       await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
+    });
+
+    it('marks every row with a write outstanding, not just the latest', async () => {
+      let release!: () => void;
+      const inFlight = new Promise<void>((resolve) => (release = resolve));
+      renderApp(
+        [buildTodo({ id: 'a', title: 'Buy milk' }), buildTodo({ id: 'b', title: 'Write README' })],
+        { hold: inFlight },
+      );
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(within(rowFor('Buy milk')).getByRole('checkbox'));
+      await userEvent.click(within(rowFor('Write README')).getByRole('checkbox'));
+
+      await waitFor(() => expect(rowFor('Write README')).toHaveAttribute('aria-busy', 'true'));
+      expect(rowFor('Buy milk')).toHaveAttribute('aria-busy', 'true');
+
+      release();
+      await waitFor(() => expect(rowFor('Buy milk')).toHaveAttribute('aria-busy', 'false'));
+      expect(rowFor('Write README')).toHaveAttribute('aria-busy', 'false');
+    });
+  });
+
+  describe('when a write fails', () => {
+    it('reports the failure but keeps the list, so the user can try again', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })], { failWrites: 1 });
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(WRITE_FAILURE_MESSAGE);
+      expect(screen.getByText('Buy milk')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Delete Buy milk' }));
+
+      await waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument());
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('keeps the editor open with the draft when a save fails', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })], { failWrites: 1 });
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Edit Buy milk' }));
+      const title = screen.getByLabelText('Title');
+      await userEvent.clear(title);
+      await userEvent.type(title, 'Buy oat milk');
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(WRITE_FAILURE_MESSAGE);
+      expect(screen.getByLabelText('Title')).toHaveValue('Buy oat milk');
+    });
+
+    it('keeps the new to-do draft when adding fails', async () => {
+      renderApp([], { failWrites: 1 });
+      await screen.findByText('Nothing to do yet.');
+
+      await userEvent.type(screen.getByPlaceholderText('What needs doing?'), 'Buy milk');
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+      expect(await screen.findByText(WRITE_FAILURE_MESSAGE)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('What needs doing?')).toHaveValue('Buy milk');
     });
   });
 

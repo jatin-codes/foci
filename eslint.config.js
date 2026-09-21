@@ -32,5 +32,16 @@ export default tseslint.config(
     languageOptions: {
       globals: { document: 'readonly', window: 'readonly', fetch: 'readonly' },
     },
+    rules: {
+      // The client talks to the server over HTTP only; it keeps its own copy of the contract.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/server/**'], message: 'The client must not import server code.' },
+          ],
+        },
+      ],
+    },
   },
 );

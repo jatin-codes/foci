@@ -1,4 +1,4 @@
-import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useMutationState, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { send } from '../../api/http.js';
 import { todoKeys } from '../../api/queryClient.js';
@@ -33,11 +33,15 @@ function emptyMessage(query: TodoListQuery): string {
  * The query is part of the cache key, so each filter caches separately and going
  * back to one is instant; `keepPreviousData` keeps the current list on screen
  * while a new one loads, so narrowing a search does not blank the page.
+ *
+ * A failed write is reported next to the list rather than instead of it, so the
+ * user can still see their to-dos and try again. The next write clears it.
  */
 export function useTodoList(query: TodoListQuery) {
   const invalidate = useInvalidateTodos();
   // At most one row is expanded or being edited at a time.
   const [openItem, setOpenItem] = useState<{ id: string; mode: ItemMode } | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   const list = useQuery({
     queryKey: todoKeys.list(query),
@@ -45,58 +49,68 @@ export function useTodoList(query: TodoListQuery) {
     placeholderData: keepPreviousData,
   });
 
+  // Every row write shares one key, so the ones in flight can be read back below.
   const edit = useMutation({
+    mutationKey: todoKeys.rowWrite,
     mutationFn: ({ id, edits }: { id: string; edits: TodoEdits }) =>
       send<Todo>(`/todos/${id}`, { method: 'PATCH', body: JSON.stringify(edits) }),
     onSuccess: invalidate,
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => send<void>(`/todos/${id}`, { method: 'DELETE' }),
+    mutationKey: todoKeys.rowWrite,
+    mutationFn: ({ id }: { id: string }) => send<void>(`/todos/${id}`, { method: 'DELETE' }),
     onSuccess: invalidate,
   });
 
   const setCompleted = useMutation({
+    mutationKey: todoKeys.rowWrite,
     mutationFn: ({ id, isCompleted }: { id: string; isCompleted: boolean }) =>
       send<Todo>(`/todos/${id}/${isCompleted ? 'complete' : 'incomplete'}`, { method: 'POST' }),
     onSuccess: invalidate,
   });
 
-  const writes = [edit, remove, setCompleted];
-  const failed = writes.find((write) => write.error);
+  /** Every row with a write in flight - not just the latest - so each shows it is busy. */
+  const busyIds = new Set(
+    useMutationState({
+      filters: { mutationKey: todoKeys.rowWrite, status: 'pending' },
+      select: (mutation) => (mutation.state.variables as { id: string }).id,
+    }),
+  );
+
+  /** Runs a write, recording why it failed. Resolves to whether it succeeded. */
+  async function run(write: () => Promise<unknown>, fallback: string): Promise<boolean> {
+    setWriteError(null);
+    try {
+      await write();
+      return true;
+    } catch (caught) {
+      setWriteError(messageFor(caught, fallback));
+      return false;
+    }
+  }
+
   const today = todayAsCalendarDate();
 
-  /** The row a write is currently working on, so it can show it is busy. */
-  const busyId =
-    (remove.isPending ? remove.variables : undefined) ??
-    (setCompleted.isPending ? setCompleted.variables.id : undefined) ??
-    (edit.isPending ? edit.variables.id : undefined) ??
-    null;
-
   return {
-    todos: (list.data ?? []) as Todo[],
+    todos: list.data ?? [],
     isLoading: list.isPending,
     /** True while any request is in flight, including a background refresh. */
-    isBusy: list.isFetching || writes.some((write) => write.isPending),
-    busyId,
+    isBusy: list.isFetching || busyIds.size > 0,
+    isBusyRow: (id: string) => busyIds.has(id),
     emptyMessage: emptyMessage(query),
-    error: list.error
-      ? messageFor(list.error, 'Could not load to-dos')
-      : failed
-        ? messageFor(failed.error, 'Something went wrong')
-        : null,
+    /** The list could not be loaded, so there is nothing to show. */
+    loadError: list.error ? messageFor(list.error, 'Could not load to-dos') : null,
+    /** A write failed; the list is still shown. */
+    writeError,
     isOverdue: (todo: Todo) => isOverdue(todo, today),
     modeFor: (id: string): ItemMode => (openItem?.id === id ? openItem.mode : 'collapsed'),
     openItemChange: (id: string, mode: ItemMode) =>
       setOpenItem(mode === 'collapsed' ? null : { id, mode }),
-    toggle: async (id: string, isCompleted: boolean) => {
-      await setCompleted.mutateAsync({ id, isCompleted }).catch(() => undefined);
-    },
-    save: async (id: string, edits: TodoEdits) => {
-      await edit.mutateAsync({ id, edits }).catch(() => undefined);
-    },
-    remove: async (id: string) => {
-      await remove.mutateAsync(id).catch(() => undefined);
-    },
+    toggle: (id: string, isCompleted: boolean) =>
+      run(() => setCompleted.mutateAsync({ id, isCompleted }), 'Could not update the to-do'),
+    save: (id: string, edits: TodoEdits) =>
+      run(() => edit.mutateAsync({ id, edits }), 'Could not save the to-do'),
+    remove: (id: string) => run(() => remove.mutateAsync({ id }), 'Could not delete the to-do'),
   };
 }

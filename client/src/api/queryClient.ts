@@ -16,4 +16,6 @@ export function createQueryClient(): QueryClient {
 export const todoKeys = {
   all: ['todos'] as const,
   list: (query: unknown) => ['todos', 'list', query] as const,
+  /** Mutations that act on one existing row; their variables always carry its `id`. */
+  rowWrite: ['todos', 'rowWrite'] as const,
 };

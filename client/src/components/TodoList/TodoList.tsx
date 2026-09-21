@@ -11,10 +11,10 @@ interface Props {
 export function TodoList({ query }: Props) {
   const list = useTodoList(query);
 
-  if (list.error) {
+  if (list.loadError) {
     return (
       <p role="alert" className="muted list-error">
-        {list.error}
+        {list.loadError}
       </p>
     );
   }
@@ -24,13 +24,18 @@ export function TodoList({ query }: Props) {
 
   return (
     <>
+      {list.writeError && (
+        <p role="alert" className="muted list-error">
+          {list.writeError}
+        </p>
+      )}
       <ul className="todos">
         {list.todos.map((todo) => (
           <TodoItem
             key={todo.id}
             todo={todo}
             isOverdue={list.isOverdue(todo)}
-            isBusy={list.busyId === todo.id}
+            isBusy={list.isBusyRow(todo.id)}
             mode={list.modeFor(todo.id)}
             onModeChange={(mode) => list.openItemChange(todo.id, mode)}
             onToggle={list.toggle}

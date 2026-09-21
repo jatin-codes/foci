@@ -10,10 +10,6 @@ interface NewTodo {
   dueDate?: string;
 }
 
-/**
- * The form's own state: the three draft fields, and the request that saves them.
- * The component renders what this returns and owns nothing itself.
- */
 export function useNewTodoForm() {
   const invalidate = useInvalidateTodos();
   const [title, setTitle] = useState('');
@@ -31,7 +27,6 @@ export function useNewTodoForm() {
     event.preventDefault();
     if (title.trim() === '') return;
 
-    // Optional fields are omitted rather than sent blank, so the API applies its defaults.
     const saved = await create
       .mutateAsync({
         title: title.trim(),

@@ -197,7 +197,7 @@ client/
     ├── api/                  the network boundary
     │   ├── http.ts               the only place that calls fetch; names this browser's list
     │   ├── queryClient.ts        cache configuration and query keys
-    │   └── types.ts              the API contract, typed from the server
+    │   └── types.ts              the client's own copy of the API contract
     ├── hooks/                hooks used by more than one component
     ├── utils/                pure helpers
     └── components/           nested the way the page renders them
@@ -246,7 +246,8 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   `get` + `save`, so concurrent requests such as "complete" and "rename" on the same item cannot
   overwrite each other's changes. The file repository queues its operations to guarantee this, and
   writes via a temp file + rename so a crash mid-write cannot corrupt the data. A data file that
-  cannot be parsed is reported as an error rather than overwritten.
+  cannot be parsed, or holds records that are not to-dos, is reported as an error rather than
+  overwritten.
 - **Server state is TanStack Query's job, not `useState`'s.** `useTodoList` declares one query -
   keyed by the filter, sort and search, so each is cached separately - and a mutation per write,
   each invalidating the list on success. That buys what a hand-rolled version kept
@@ -277,10 +278,15 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   more than one component uses; everything else sits next to the component that renders it.
 - **Business rules stay on the server.** Searching, filtering and sorting are query parameters,
   not array operations in the browser, so the SPA and a direct API client see identical results.
-- **The API contract is typed, not duplicated.** `client/src/api/types.ts` re-exports the
-  server's `Todo` as a type-only import, so the two cannot disagree; nothing from the server is
-  bundled. It holds the contract and nothing else: UI copy such as the sort-field labels lives
-  with the component that renders it.
+- **The client never imports server code.** `client/src/api/types.ts` declares the API
+  contract the client relies on - the to-do shape and the accepted filter and sort values -
+  so the two halves build and deploy independently, and an ESLint rule rejects any import from
+  `server/`. The cost is a second copy of the contract: a change to the API must be made in
+  both places, with the README's API section as the reference. It holds the contract and
+  nothing else: UI copy such as the sort-field labels lives with the component that renders it.
+- **A failed write does not hide the list.** A load failure replaces the list, because there is
+  nothing to show; a failed add, edit, toggle or delete is reported above it, and the next write
+  clears it. A failed save leaves the form open with the draft intact, so nothing is retyped.
 
 ### API decisions
 
@@ -308,7 +314,8 @@ Tests are organised as a pyramid, mirroring the source layout under `server/test
    path, validation failures, 404s, malformed JSON and the 500 path.
 4. **Component tests** driving the React app through the DOM with Testing Library — list, add,
    view, update, complete, delete, search and filter — against a stubbed `fetch`. The stub can
-   hold a request open, so the in-flight state is asserted rather than assumed.
+   hold a request open, so the in-flight state is asserted rather than assumed, and can fail
+   writes, so what the user sees after a server error is tested too.
 5. **One end-to-end test** wires HTTP → service → JSON file exactly as production does and
    verifies data survives an application "restart".
 

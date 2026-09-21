@@ -111,8 +111,10 @@ export class JsonFileTodoRepository implements TodoRepository {
     } catch (error) {
       throw new DataFileCorruptedError(this.filePath, { cause: error });
     }
-    if (!Array.isArray(parsed)) throw new DataFileCorruptedError(this.filePath);
-    return parsed as StoredTodo[];
+    if (!Array.isArray(parsed) || !parsed.every(isStoredTodo)) {
+      throw new DataFileCorruptedError(this.filePath);
+    }
+    return parsed;
   }
 
   private async write(todos: StoredTodo[]): Promise<void> {
@@ -122,6 +124,23 @@ export class JsonFileTodoRepository implements TodoRepository {
     await writeFile(temporaryPath, `${JSON.stringify(todos, null, 2)}\n`, 'utf8');
     await rename(temporaryPath, this.filePath);
   }
+}
+
+const isNullableString = (value: unknown) => value === null || typeof value === 'string';
+
+/** Checks a record's shape, so a hand-edited or foreign file is refused rather than served. */
+function isStoredTodo(value: unknown): value is StoredTodo {
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === 'string' &&
+    typeof record.ownerId === 'string' &&
+    typeof record.title === 'string' &&
+    isNullableString(record.description) &&
+    isNullableString(record.dueDate) &&
+    typeof record.isCompleted === 'boolean' &&
+    typeof record.createdAt === 'string'
+  );
 }
 
 function isFileNotFound(error: unknown): boolean {

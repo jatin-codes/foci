@@ -68,6 +68,7 @@ describe('JsonFileTodoRepository persistence', () => {
   it.each([
     ['malformed JSON', '{ not json'],
     ['JSON that is not a list', '{"todos": []}'],
+    ['a list holding something other than to-dos', '[{"id": "a", "title": 42}]'],
   ])('rejects with DataFileCorruptedError for %s and leaves the file untouched', async (_, raw) => {
     const filePath = path.join(directory, 'todos.json');
     await writeFile(filePath, raw, 'utf8');

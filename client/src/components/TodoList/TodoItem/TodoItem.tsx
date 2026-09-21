@@ -12,9 +12,10 @@ interface Props {
   isBusy: boolean;
   mode: ItemMode;
   onModeChange: (mode: ItemMode) => void;
-  onToggle: (id: string, isCompleted: boolean) => Promise<void>;
-  onSave: (id: string, edits: TodoEdits) => Promise<void>;
-  onRemove: (id: string) => Promise<void>;
+  onToggle: (id: string, isCompleted: boolean) => Promise<boolean>;
+  /** Resolves to whether the save succeeded. */
+  onSave: (id: string, edits: TodoEdits) => Promise<boolean>;
+  onRemove: (id: string) => Promise<boolean>;
 }
 
 const NONE = <span className="details-none">None</span>;
@@ -51,10 +52,12 @@ export function TodoItem({
   const isOpen = mode !== 'collapsed';
   const classes = ['todo', todo.isCompleted ? 'done' : '', isBusy ? 'busy' : ''];
 
-  /** Saving collapses the row; which mode it is in belongs to the list. */
-  async function save(edits: TodoEdits) {
-    await onSave(todo.id, edits);
-    onModeChange('collapsed');
+  /**
+   * A successful save collapses the row; which mode it is in belongs to the list.
+   * A failed one leaves the editor open, so the user's draft is not lost.
+   */
+  async function save(edits: TodoEdits): Promise<void> {
+    if (await onSave(todo.id, edits)) onModeChange('collapsed');
   }
 
   return (
