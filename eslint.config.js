@@ -8,13 +8,11 @@ export default tseslint.config(
   tseslint.configs.recommended,
   {
     rules: {
-      // Express identifies error handlers by arity, so unused parameters must stay: prefix them with "_".
+      // Express detects error handlers by arity, so unused parameters must stay.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
   {
-    // Type-aware linting, for the one rule that needs it: deprecated APIs are invisible
-    // to the compiler and easy to reintroduce, so let the linter refuse them.
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
@@ -33,12 +31,28 @@ export default tseslint.config(
       globals: { document: 'readonly', window: 'readonly', fetch: 'readonly' },
     },
     rules: {
-      // The client talks to the server over HTTP only; the contract comes from shared/.
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             { group: ['**/server/**'], message: 'The client must not import server code.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['client/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/server/**'], message: 'The client must not import server code.' },
+            {
+              regex: '^\\.\\./',
+              message: 'Import from another folder through @api, @components, @hooks or @shared.',
+            },
           ],
         },
       ],
@@ -58,7 +72,6 @@ export default tseslint.config(
     },
   },
   {
-    // Both halves import the contract, so it may depend on neither of them, nor on any package.
     files: ['shared/**/*.ts'],
     rules: {
       'no-restricted-imports': [

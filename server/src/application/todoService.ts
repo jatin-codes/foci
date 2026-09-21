@@ -9,22 +9,18 @@ import {
   type TodoView,
   type UpdateTodoInput,
 } from '../domain/todo.js';
-import { queryTodos, type TodoListQuery } from './todoQuery.js';
-
-/** One page of a list, and how many to-dos matched in all. */
-export interface TodoPage {
-  todos: TodoView[];
-  total: number;
-}
+import type { TodoListQuery } from '../../../shared/contract.js';
+import { queryTodos } from './todoQuery.js';
 import type { TodoRepository } from './todoRepository.js';
 
 type Clock = () => Date;
 type IdGenerator = () => string;
 
-/**
- * The to-do use cases. Every one acts for a single owner, which is passed in
- * rather than stored, so one service serves every caller.
- */
+export interface TodoPage {
+  todos: TodoView[];
+  total: number;
+}
+
 export class TodoService {
   constructor(
     private readonly repository: TodoRepository,
@@ -82,7 +78,6 @@ export class TodoService {
     return toView(updated, this.today());
   }
 
-  /** Overdue is judged against the clock's UTC calendar date. */
   private today(): string {
     return toCalendarDate(this.clock());
   }

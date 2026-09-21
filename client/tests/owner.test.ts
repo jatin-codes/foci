@@ -1,10 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ownerId } from '../src/api/http.js';
-import { OWNER_HEADER } from '../src/api/types.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ownerId } from '@api/http.js';
 
 describe('ownerId', () => {
   beforeEach(() => localStorage.clear());
-  afterEach(() => localStorage.clear());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
 
   it('returns the same id on every call', () => {
     expect(ownerId()).toBe(ownerId());
@@ -13,7 +15,6 @@ describe('ownerId', () => {
   it('keeps the id across reloads by storing it', () => {
     const first = ownerId();
 
-    // A reload re-reads localStorage rather than generating a new id.
     expect(localStorage.getItem('todo.ownerId')).toBe(first);
   });
 
@@ -24,7 +25,14 @@ describe('ownerId', () => {
     expect(ownerId()).not.toBe(first);
   });
 
-  it('names the header the API expects', () => {
-    expect(OWNER_HEADER).toBe('X-Owner-Id');
+  it('falls back to one id for the session when storage is blocked', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+
+    const first = ownerId();
+
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(ownerId()).toBe(first);
   });
 });

@@ -1,10 +1,9 @@
-import type { TodoListQuery } from '../../api/types.js';
-import { TodoItem } from './TodoItem/TodoItem.js';
+import type { TodoListQuery } from '@api/types.js';
+import { TodoItem } from '@components/TodoList/TodoItem/TodoItem.js';
 import './TodoList.css';
 import { useTodoList } from './useTodoList.js';
 
 interface Props {
-  /** What to show: the filter, sort and search the API should apply. */
   query: TodoListQuery;
 }
 
@@ -36,7 +35,7 @@ export function TodoList({ query }: Props) {
             todo={todo}
             isBusy={list.isBusyRow(todo.id)}
             mode={list.modeFor(todo.id)}
-            onModeChange={(mode) => list.openItemChange(todo.id, mode)}
+            onModeChange={(mode) => list.setModeFor(todo.id, mode)}
             onToggle={list.toggle}
             onSave={list.save}
             onRemove={list.remove}

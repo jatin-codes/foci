@@ -18,11 +18,9 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
 
-  # Builds the production image and checks the running container answers, so a broken
-  # Dockerfile fails here rather than on deploy.
   docker:
     runs-on: ubuntu-latest
     steps:

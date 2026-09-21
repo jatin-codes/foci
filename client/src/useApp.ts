@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { SortField, SortOrder, StatusFilter } from './api/types.js';
+import type { SortField, SortOrder, StatusFilter } from '@api/types.js';
 
 interface Query {
   status: StatusFilter;

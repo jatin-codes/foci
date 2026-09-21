@@ -4,10 +4,9 @@ import {
   type SortField,
   type SortOrder,
   type StatusFilter,
-} from '../../api/types.js';
+} from '@api/types.js';
 import './TodoFilters.css';
 
-/** How each sort field is named on screen. UI copy, so it lives with the UI. */
 const SORT_LABELS: Record<SortField, string> = {
   createdAt: 'Created',
   dueDate: 'Due date',
@@ -31,10 +30,6 @@ function label(status: string): string {
   return status === 'all' ? 'All' : status[0]!.toUpperCase() + status.slice(1);
 }
 
-/**
- * Chooses the query; the API applies it. Fully controlled, so it holds no state
- * of its own and needs no hook.
- */
 export function TodoFilters({ status, sortBy, order, onChange }: Props) {
   return (
     <div className="filters">

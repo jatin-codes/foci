@@ -1,25 +1,34 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildTodo, fakeApi, WRITE_FAILURE_MESSAGE } from './support/fakeApi.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildTodo, LOAD_FAILURE_MESSAGE, WRITE_FAILURE_MESSAGE } from './support/fakeApi.js';
 import { renderApp } from './support/renderApp.js';
 
-/** The row containing a to-do, so assertions do not leak into its neighbours. */
 function rowFor(title: string) {
   return screen.getByText(title).closest('li')!;
 }
 
-/** Deleting takes a click on × and then a confirmation. */
+function bodiesSent(method: string): unknown[] {
+  return vi
+    .mocked(fetch)
+    .mock.calls.filter(([, init]) => init?.method === method)
+    .map(([, init]) => JSON.parse(init!.body as string));
+}
+
+function lastListQuery(): URLSearchParams {
+  const listUrls = vi
+    .mocked(fetch)
+    .mock.calls.filter(([, init]) => (init?.method ?? 'GET') === 'GET')
+    .map(([url]) => String(url));
+  return new URLSearchParams(listUrls.at(-1)!.split('?')[1] ?? '');
+}
+
 async function deleteTodo(title: string) {
   await userEvent.click(screen.getByRole('button', { name: `Delete ${title}` }));
   await userEvent.click(screen.getByRole('button', { name: `Confirm delete ${title}` }));
 }
 
 describe('App', () => {
-  beforeEach(() => {
-    vi.stubGlobal('fetch', fakeApi());
-  });
-
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -44,6 +53,13 @@ describe('App', () => {
       expect(within(rowFor('On time')).queryByText(/overdue/)).not.toBeInTheDocument();
     });
 
+    it('reports when the list cannot be loaded', async () => {
+      renderApp([buildTodo()], { failReads: true });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(LOAD_FAILURE_MESSAGE);
+      expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    });
+
     it('shows a message when there is nothing to do', async () => {
       renderApp([]);
 
@@ -61,6 +77,24 @@ describe('App', () => {
 
       expect(await screen.findByText('Buy milk')).toBeInTheDocument();
     });
+
+    it('sends a description and due date when given, then resets the form', async () => {
+      renderApp([]);
+      await screen.findByText('Nothing to do yet.');
+
+      await userEvent.type(screen.getByPlaceholderText('What needs doing?'), 'Buy milk');
+      await userEvent.type(screen.getByLabelText('Due date'), '2025-06-20');
+      await userEvent.click(screen.getByRole('button', { name: '+ Add a description' }));
+      await userEvent.type(screen.getByLabelText('Description'), 'Semi-skimmed');
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+      expect(await screen.findByText('Buy milk')).toBeInTheDocument();
+      expect(bodiesSent('POST')).toEqual([
+        { title: 'Buy milk', description: 'Semi-skimmed', dueDate: '2025-06-20' },
+      ]);
+      expect(screen.getByPlaceholderText('What needs doing?')).toHaveValue('');
+      expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
+    });
   });
 
   describe('viewing', () => {
@@ -76,18 +110,35 @@ describe('App', () => {
   });
 
   describe('updating', () => {
-    it('saves an edited title and due date', async () => {
-      renderApp([buildTodo({ title: 'Buy milk' })]);
+    it('saves an edited title, and clears a due date the user empties', async () => {
+      renderApp([buildTodo({ title: 'Buy milk', dueDate: '2025-06-20' })]);
       await screen.findByText('Buy milk');
 
       await userEvent.click(screen.getByRole('button', { name: 'Edit Buy milk' }));
       const title = screen.getByLabelText('Title');
       await userEvent.clear(title);
       await userEvent.type(title, 'Buy oat milk');
+      await userEvent.clear(within(rowFor('Buy milk')).getByLabelText('Due date'));
       await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(await screen.findByText('Buy oat milk')).toBeInTheDocument();
-      expect(screen.queryByText('Buy milk')).not.toBeInTheDocument();
+      expect(screen.queryByText(/due 2025-06-20/)).not.toBeInTheDocument();
+      expect(bodiesSent('PATCH')).toEqual([
+        { title: 'Buy oat milk', description: null, dueDate: null },
+      ]);
+    });
+
+    it('discards the draft when editing is cancelled', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })]);
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Edit Buy milk' }));
+      await userEvent.type(screen.getByLabelText('Title'), ' and bread');
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
+      expect(screen.getByText('Buy milk')).toBeInTheDocument();
+      expect(bodiesSent('PATCH')).toEqual([]);
     });
   });
 
@@ -275,6 +326,21 @@ describe('App', () => {
 
       await waitFor(() => expect(screen.queryByText('Pending thing')).not.toBeInTheDocument());
       expect(screen.getByText('Done thing')).toBeInTheDocument();
+    });
+  });
+
+  describe('sorting', () => {
+    it('asks the server for the chosen sort field and order', async () => {
+      renderApp([buildTodo({ title: 'Buy milk' })]);
+      await screen.findByText('Buy milk');
+
+      await userEvent.selectOptions(screen.getByLabelText('Sort by'), 'Title');
+      await waitFor(() => expect(lastListQuery().get('sortBy')).toBe('title'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Sorted ascending/ }));
+      await waitFor(() => expect(lastListQuery().get('order')).toBe('desc'));
+      expect(lastListQuery().get('sortBy')).toBe('title');
+      expect(screen.getByRole('button', { name: /Sorted descending/ })).toBeInTheDocument();
     });
   });
 });

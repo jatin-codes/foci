@@ -1,11 +1,7 @@
-import type { TodoRepository } from '../application/todoRepository.js';
-import { applyChanges, type Todo, type TodoChanges } from '../domain/todo.js';
+import type { TodoRepository } from '../../src/application/todoRepository.js';
+import { applyChanges, type Todo, type TodoChanges } from '../../src/domain/todo.js';
 
-/** Non-persistent repository, used by tests and handy for local experiments. */
 export class InMemoryTodoRepository implements TodoRepository {
-  // One map per owner. A Map iterates in insertion order, which gives `list()`
-  // its ordering guarantee, and keeping owners apart makes leaking between them
-  // impossible rather than merely unlikely.
   private readonly byOwner = new Map<string, Map<string, Todo>>();
 
   private todosFor(ownerId: string): Map<string, Todo> {

@@ -3,7 +3,6 @@ import path from 'node:path';
 import type { TodoRepository } from '../application/todoRepository.js';
 import { applyChanges, type Todo, type TodoChanges } from '../domain/todo.js';
 
-/** How a to-do is stored: the to-do itself plus the owner it belongs to. */
 interface StoredTodo extends Todo {
   ownerId: string;
 }
@@ -19,16 +18,6 @@ export class DataFileCorruptedError extends Error {
   }
 }
 
-/**
- * Stores every owner's to-dos as one JSON array in a single file, each record
- * carrying the owner it belongs to. Reads and writes are scoped by owner, so one
- * owner's id can never reach another's data.
- *
- * Every operation reads the file afresh, so the file is the single source of
- * truth. Operations are queued to run one at a time, which keeps each
- * read-modify-write cycle atomic within this process, and writes go through a
- * temporary file so a crash mid-write cannot leave a truncated data file.
- */
 export class JsonFileTodoRepository implements TodoRepository {
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -83,12 +72,10 @@ export class JsonFileTodoRepository implements TodoRepository {
     return todos.filter((todo) => todo.ownerId === ownerId);
   }
 
-  /** Scoped by owner, so another owner's id is indistinguishable from a missing one. */
   private find(todos: StoredTodo[], ownerId: string, id: string): StoredTodo | undefined {
     return todos.find((todo) => this.matches(todo, ownerId, id));
   }
 
-  /** Runs the operation once all previously queued operations have settled. */
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.queue.then(operation);
     this.queue = result.catch(() => undefined); // a failed operation must not block the queue
@@ -100,11 +87,10 @@ export class JsonFileTodoRepository implements TodoRepository {
     try {
       contents = await readFile(this.filePath, 'utf8');
     } catch (error) {
-      if (isFileNotFound(error)) return []; // first run: nothing has been saved yet
+      if (isFileNotFound(error)) return [];
       throw error;
     }
 
-    // Refuse to continue on unreadable data rather than overwrite it on the next write.
     let parsed: unknown;
     try {
       parsed = JSON.parse(contents);
@@ -128,7 +114,6 @@ export class JsonFileTodoRepository implements TodoRepository {
 
 const isNullableString = (value: unknown) => value === null || typeof value === 'string';
 
-/** Checks a record's shape, so a hand-edited or foreign file is refused rather than served. */
 function isStoredTodo(value: unknown): value is StoredTodo {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;

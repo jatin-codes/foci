@@ -7,7 +7,13 @@
     "types": ["node", "vite/client"],
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@api/*": ["./src/api/*"],
+      "@components/*": ["./src/components/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@shared/*": ["../shared/*"]
+    }
   },
   "include": ["src", "tests", "vite.config.ts"]
 }

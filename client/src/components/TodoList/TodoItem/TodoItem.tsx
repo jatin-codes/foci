@@ -1,24 +1,21 @@
 import { useState } from 'react';
-import type { Todo, TodoEdits } from '../../../api/types.js';
+import type { Todo, TodoEdits } from '@api/types.js';
 import './TodoItem.css';
-import type { ItemMode } from '../useTodoList.js';
+import type { ItemMode } from '@components/TodoList/useTodoList.js';
 import { TodoEditor } from './TodoEditor.js';
 
 interface Props {
   todo: Todo;
-  /** A write on this row is in flight, so its controls are inert until it lands. */
   isBusy: boolean;
   mode: ItemMode;
   onModeChange: (mode: ItemMode) => void;
   onToggle: (id: string, isCompleted: boolean) => Promise<boolean>;
-  /** Resolves to whether the save succeeded. */
   onSave: (id: string, edits: TodoEdits) => Promise<boolean>;
   onRemove: (id: string) => Promise<boolean>;
 }
 
 const NONE = <span className="details-none">None</span>;
 
-/** The fields that do not fit on the row, shown when it is expanded. */
 function Details({ todo }: { todo: Todo }) {
   return (
     <dl className="details">
@@ -38,15 +35,10 @@ function Details({ todo }: { todo: Todo }) {
 }
 
 export function TodoItem({ todo, isBusy, mode, onModeChange, onToggle, onSave, onRemove }: Props) {
-  // Deleting takes two clicks, so a stray one cannot lose a to-do. There is no undo.
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const isOpen = mode !== 'collapsed';
   const classes = ['todo', todo.isCompleted ? 'done' : '', isBusy ? 'busy' : ''];
 
-  /**
-   * A successful save collapses the row; which mode it is in belongs to the list.
-   * A failed one leaves the editor open, so the user's draft is not lost.
-   */
   async function save(edits: TodoEdits): Promise<void> {
     if (await onSave(todo.id, edits)) onModeChange('collapsed');
   }

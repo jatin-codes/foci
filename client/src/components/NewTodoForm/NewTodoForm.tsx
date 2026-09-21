@@ -1,4 +1,4 @@
-import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '../../api/types.js';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH } from '@api/types.js';
 import './NewTodoForm.css';
 import { useNewTodoForm } from './useNewTodoForm.js';
 

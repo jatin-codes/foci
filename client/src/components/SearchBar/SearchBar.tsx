@@ -1,9 +1,8 @@
-import { SEARCH_MAX_LENGTH } from '../../api/types.js';
+import { SEARCH_MAX_LENGTH } from '@api/types.js';
 import './SearchBar.css';
 import { useSearchBar } from './useSearchBar.js';
 
 interface SearchBarProps {
-  /** Called with the settled search text, not with every keystroke. */
   onSearch: (search: string) => void;
 }
 

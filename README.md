@@ -10,6 +10,27 @@ server/   Express API, layered domain / application / infrastructure / http
 shared/   The API contract both halves import: wire types, accepted values, field limits
 ```
 
+## Highlights
+
+- **Layered server with one seam to storage.** Domain → application → HTTP, with the JSON file
+  plugged in behind a `TodoRepository` interface. Swapping in a database is one new class and
+  one changed line. [Architecture](#architecture)
+- **One repository test suite, run against the real repository and its test double**, so the
+  fast in-memory stand-in is trustworthy. [Testing strategy](#testing-strategy)
+- **Safe file storage.** Queued atomic updates, temp-file-and-rename writes, and a corrupt data
+  file is refused rather than overwritten.
+- **One contract for both halves.** `shared/contract.ts` is checked against every response at
+  compile time, and ESLint stops the client importing server code.
+- **Business rules live on the server.** Filtering, sorting, paging and the overdue rule all run
+  there; the client only renders.
+- **Visible failure and in-flight states.** Busy rows are disabled and marked `aria-busy`;
+  a failed write is reported without hiding the list or losing a draft.
+- **Fully checked in CI.** Formatting, lint, type-check, 198 tests with a coverage gate (99% of
+  lines covered), a production build, and a
+  Docker image that is built, started and smoke-tested.
+
+Known gaps and next steps are in [Areas for improvement](#areas-for-improvement).
+
 ## Getting started
 
 Requires **Node.js 20 or newer**.
@@ -28,7 +49,7 @@ Run them separately with `npm run dev:server` and `npm run dev:client` if you pr
 ### Production
 
 ```bash
-npm run build      # compiles the server, bundles the client
+npm run build      # bundles the server and the client (both with Vite)
 npm start          # http://localhost:3000 serves both
 ```
 
@@ -57,13 +78,14 @@ The named volume keeps your to-dos when the container is replaced.
 ## Running the tests
 
 ```bash
-npm test           # run the whole suite once
-npm run test:watch # re-run on change
-npm run check      # formatting + lint + type-check + tests (what CI runs)
+npm test              # run the whole suite once
+npm run test:watch    # re-run on change
+npm run test:coverage # run once and enforce the coverage thresholds
+npm run check         # formatting + lint + type-check + coverage (what CI runs, plus a Docker build)
 ```
 
 Two suites run side by side: the server's in Node, the client's in a jsdom DOM with Testing
-Library. Neither needs setup — the server builds its own in-memory repository, and the client
+Library. Neither needs setup — the server tests use an in-memory repository, and the client
 stubs `fetch`.
 
 ## The app
@@ -229,7 +251,7 @@ server/
     ├── domain/           Todo type and pure rules (isOverdue, calendar dates). No dependencies.
     ├── application/      TodoService (the use cases), list filtering/sorting, and the
     │                     TodoRepository interface the service depends on.
-    ├── infrastructure/   TodoRepository implementations: JSON file and in-memory.
+    ├── infrastructure/   The JSON file TodoRepository.
     ├── http/             Express adapter: api/ router, shared validation, the single
     │                     error-to-response mapping, request logging and serveClient.ts.
     ├── config.ts         Environment parsing.
@@ -251,8 +273,9 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   that.
 - **The service depends on an interface, not on storage.** `TodoService` receives a
   `TodoRepository` through its constructor. Swapping the JSON file for a database means writing one
-  new class and changing one line in `server.ts`. The in-memory implementation is proof that the
-  seam works, and it is what keeps most tests fast.
+  new class and changing one line in `server.ts`. The tests already plug in a second,
+  in-memory implementation, which is both proof that the seam works and what keeps them fast.
+  It lives with the tests, not in `src/`, because production never uses it.
 - **Time and id generation are injected too**, which makes "created at" and "overdue" behaviour
   deterministic under test without mocking globals.
 - **HTTP is a thin adapter.** Route handlers validate input, call one service method and serialise
@@ -290,6 +313,11 @@ On the server, dependencies point inwards only: `http` → `application` → `do
   inside it, so `components/` lists what the page renders rather than everything that exists,
   and the path says who may use a component. Anything shared by two parents moves up to where
   both can reach it.
+- **Imports say where they reach.** A file in the same folder is imported relatively
+  (`./useTodoList.js`); anything else goes through an alias for its top-level folder
+  (`@api`, `@components`, `@hooks`, `@shared`), so no import climbs with `../`. ESLint enforces
+  it, and the aliases are declared once in `client/vite.config.ts` and mirrored in
+  `client/tsconfig.json`.
 - **A file has to earn itself.** State management lives in a hook (`useNewTodoForm`,
   `useTodoList`) because that is the part worth reading on its own. Everything else stays in
   the component: props types, presentational fragments such as the details panel, and the
@@ -329,19 +357,24 @@ Tests are organised as a pyramid, mirroring the source layout under `server/test
 1. **Unit tests** for the pure logic: date validation, the overdue rule, filtering/sorting, config
    parsing, and `TodoService` (run against the in-memory repository with a fixed clock).
 2. **A repository contract suite** (`server/tests/support/todoRepositoryContract.ts`): one set of
-   behavioural tests executed against _every_ `TodoRepository` implementation. This is what
-   justifies using the in-memory repository as a stand-in elsewhere. The file repository
+   behavioural tests run against the file repository and the in-memory test double alike. This
+   is what justifies using the double as a stand-in elsewhere. The file repository
    additionally has tests for what is unique to it: persistence across instances, concurrent
    writes, directory creation and corrupted files.
 3. **API integration tests** using Supertest against the real Express app: every endpoint's happy
-   path, validation failures, paging, 404s, malformed JSON, the 500 path and request logging.
+   path, validation failures, paging, 404s, malformed JSON, the 500 path and request logging,
+   plus serving the built client without it ever answering for an API path.
 4. **Component tests** driving the React app through the DOM with Testing Library — list, add,
-   view, update, complete, delete (and backing out of it), search and filter — against a stubbed
-   `fetch`. The stub can
-   hold a request open, so the in-flight state is asserted rather than assumed, and can fail
-   writes, so what the user sees after a server error is tested too.
+   view, update, cancel, complete, delete (and backing out of it), search, filter and sort —
+   against a stubbed `fetch`. The stub can hold a request open, so the in-flight state is
+   asserted rather than assumed, and can fail reads and writes, so what the user sees after a
+   server error is tested too.
 5. **One end-to-end test** wires HTTP → service → JSON file exactly as production does and
    verifies data survives an application "restart".
+
+Coverage is enforced in CI (`vitest.config.ts` holds the thresholds). The two entry points,
+`server.ts` and `main.tsx`, only wire things together and are left out; the Docker smoke test
+runs the server's for real.
 
 Tests assert on observable behaviour (return values, HTTP responses, what is on screen), not on
 internal calls, so the internals can be refactored freely.
@@ -395,6 +428,10 @@ internal calls, so the internals can be refactored freely.
 - **A shared contract module rather than generated types.** `shared/` is one hand-written file
   both halves compile against, which is simple and catches drift at build time. It does not
   describe the API to anyone outside this repository; an OpenAPI document would.
+- **The server is bundled with Vite rather than compiled with `tsc`.** `tsc` would mirror the
+  directory tree, nesting the output under `server/dist/server/src/` so it could reach `shared/`.
+  Bundling folds the contract into one `server/dist/server.js` and reuses a tool the client
+  already needs. `tsc` still type-checks; it just no longer emits.
 - **A confirmation step rather than undo for deletes.** Two clicks instead of one, but no
   soft-delete state on the server. Undo is the friendlier pattern; see below.
 
@@ -426,5 +463,4 @@ Roughly in the order I would take them on:
 - **Operational hardening.** Structured JSON logs with request ids, metrics, rate limiting and
   security headers (for example with `helmet`) would all be expected before running this for
   real users.
-- **CI gates.** A coverage threshold, an automated accessibility check (axe) in the component
-  tests, and a Docker build step to catch a broken image before it ships.
+- **An automated accessibility check** (axe) in the component tests.

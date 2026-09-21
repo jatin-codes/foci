@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TodoService } from '../../src/application/todoService.js';
 import { TodoNotFoundError } from '../../src/domain/errors.js';
-import { InMemoryTodoRepository } from '../../src/infrastructure/inMemoryTodoRepository.js';
+import { InMemoryTodoRepository } from '../support/inMemoryTodoRepository.js';
 
 const NOW = new Date('2025-06-15T10:30:00.000Z');
 

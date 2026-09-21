@@ -15,7 +15,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     port,
     dataFile: path.resolve(env.DATA_FILE ?? 'data/todos.json'),
-    // Relative paths resolve against the working directory: the project root, as for DATA_FILE.
     clientDir: path.resolve(env.CLIENT_DIR ?? 'client/dist'),
   };
 }

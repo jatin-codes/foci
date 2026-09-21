@@ -27,14 +27,13 @@ const title = text('title')
 
 const description = text('description')
   .max(DESCRIPTION_MAX_LENGTH, `description must be at most ${DESCRIPTION_MAX_LENGTH} characters`)
-  .transform((value) => (value === '' ? null : value)) // a blank description means "none"
+  .transform((value) => (value === '' ? null : value))
   .nullable();
 
 const dueDate = text('dueDate')
   .refine(isCalendarDate, 'dueDate must be a valid date in YYYY-MM-DD format')
   .nullable();
 
-// Strict objects reject unknown fields, so a typo such as "due_date" is reported, not ignored.
 export const createTodoSchema = z.strictObject({
   title,
   description: description.optional(),
@@ -56,21 +55,20 @@ function oneOf<const Values extends readonly [string, ...string[]]>(param: strin
   return z.enum(values, { error: `${param} must be one of: ${values.join(', ')}` }).optional();
 }
 
-/** A whole number read from the query string, which only ever holds text. */
-function integer(param: string, min: number, max = Number.MAX_SAFE_INTEGER) {
+function integer(param: string, min: number, max?: number) {
   const message =
-    max === Number.MAX_SAFE_INTEGER
+    max === undefined
       ? `${param} must be a whole number of at least ${min}`
       : `${param} must be a whole number from ${min} to ${max}`;
+  const number = z.number().min(min, message);
   return z
     .string()
     .regex(/^\d+$/, message)
     .transform(Number)
-    .pipe(z.number().int().min(min, message).max(max, message))
+    .pipe(max === undefined ? number : number.max(max, message))
     .optional();
 }
 
-// Unknown query parameters are ignored, as is conventional for query strings.
 export const listTodosQuerySchema = z.object({
   status: oneOf('status', STATUS_FILTERS),
   sortBy: oneOf('sortBy', SORT_FIELDS),
@@ -84,11 +82,7 @@ export const listTodosQuerySchema = z.object({
   offset: integer('offset', 0),
 });
 
-/**
- * Names whose list a request is for. This scopes data; it does not protect it -
- * the id is client-supplied and checked against nothing. Real accounts would
- * derive the owner from an authenticated session instead.
- */
+/** Scopes data but does not protect it: the id is client-supplied and checked against nothing. */
 export const ownerIdSchema = z
   .string({
     error: ({ input }) =>

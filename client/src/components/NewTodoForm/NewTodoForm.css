@@ -28,7 +28,6 @@
   color: var(--text);
 }
 
-/* A failed save is reported next to the form that caused it, not at page level. */
 .new-error {
   color: var(--accent);
 }

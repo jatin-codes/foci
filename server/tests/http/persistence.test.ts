@@ -8,7 +8,6 @@ import { createApp } from '../../src/http/app.js';
 import { OWNER_HEADER } from '../../../shared/contract.js';
 import { JsonFileTodoRepository } from '../../src/infrastructure/jsonFileTodoRepository.js';
 
-/** End-to-end check of the production wiring: HTTP -> service -> JSON file. */
 describe('To-do API with file persistence', () => {
   let directory: string;
 
@@ -20,7 +19,6 @@ describe('To-do API with file persistence', () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  /** A client for one owner, against a freshly started app over the same data file. */
   function startApp(ownerId = 'owner-1') {
     const repository = new JsonFileTodoRepository(path.join(directory, 'todos.json'));
     const agent = supertest.agent(createApp(new TodoService(repository)));

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { Todo } from '../../src/api/types.js';
+import type { Todo } from '@api/types.js';
 
 export function buildTodo(overrides: Partial<Todo> = {}): Todo {
   return {
@@ -19,20 +19,20 @@ function json(body: unknown, status = 200): Response {
 }
 
 export interface FakeApiOptions {
-  /** Every write waits on this promise, so the pending state can be observed before it lands. */
+  /** Writes wait on this, so a test can observe the pending state. */
   hold?: Promise<void>;
-  /** How many writes, from the first, fail with a 500 before the API recovers. */
+  /** Number of writes that fail with a 500 before the API recovers. */
   failWrites?: number;
+  failReads?: boolean;
 }
 
 export const WRITE_FAILURE_MESSAGE = 'The server could not save that';
+export const LOAD_FAILURE_MESSAGE = 'The server could not load that';
 
-/**
- * A stand-in for the API: enough of the server's behaviour for the components to
- * exercise, backed by a list the test can seed. Filtering and sorting really happen
- * on the server, so here the query only has to be honoured, not reimplemented.
- */
-export function fakeApi(initial: Todo[] = [], { hold, failWrites = 0 }: FakeApiOptions = {}) {
+export function fakeApi(
+  initial: Todo[] = [],
+  { hold, failWrites = 0, failReads = false }: FakeApiOptions = {},
+) {
   let todos = [...initial];
   let nextId = initial.length + 1;
   let failuresLeft = failWrites;
@@ -45,6 +45,9 @@ export function fakeApi(initial: Todo[] = [], { hold, failWrites = 0 }: FakeApiO
 
     if (hold && method !== 'GET') await hold;
 
+    if (method === 'GET' && failReads) {
+      return json({ error: { code: 'INTERNAL_ERROR', message: LOAD_FAILURE_MESSAGE } }, 500);
+    }
     if (method !== 'GET' && failuresLeft > 0) {
       failuresLeft--;
       return json({ error: { code: 'INTERNAL_ERROR', message: WRITE_FAILURE_MESSAGE } }, 500);

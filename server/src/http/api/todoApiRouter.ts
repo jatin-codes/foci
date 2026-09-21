@@ -17,14 +17,6 @@ function ownerOf(req: Request): string {
   return validate(ownerIdSchema, req.get(OWNER_HEADER));
 }
 
-// Each response body is checked against the shared contract, so the server cannot change
-// what it sends without the client's types changing with it.
-
-/**
- * The JSON API. Every route acts on one owner's list, named by a header. Handlers
- * only translate between HTTP and the use cases: errors they throw (or reject
- * with) are turned into responses by the error handler.
- */
 export function createTodoApiRouter(service: TodoService): Router {
   const router = Router();
 

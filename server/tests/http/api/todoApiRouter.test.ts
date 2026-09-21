@@ -4,14 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TodoService } from '../../../src/application/todoService.js';
 import { createApp } from '../../../src/http/app.js';
 import { OWNER_HEADER } from '../../../../shared/contract.js';
-import { InMemoryTodoRepository } from '../../../src/infrastructure/inMemoryTodoRepository.js';
+import { InMemoryTodoRepository } from '../../support/inMemoryTodoRepository.js';
 
 const NOW = new Date('2025-06-15T10:30:00.000Z');
 
 describe('To-do API', () => {
   let app: Express;
-  // Every request needs an owner, so the tests speak through an agent that
-  // sends one; requests that omit it are exercised on purpose below.
   let request: ReturnType<typeof agentFor>;
 
   function agentFor(target: Express, ownerId: string) {

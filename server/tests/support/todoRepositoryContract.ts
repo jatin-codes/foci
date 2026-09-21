@@ -5,11 +5,6 @@ import { buildTodo } from './buildTodo.js';
 const OWNER = 'owner-1';
 const OTHER_OWNER = 'owner-2';
 
-/**
- * Behaviour every `TodoRepository` must honour. Each implementation runs this
- * same suite, which is what makes them safely interchangeable - and what proves
- * each one keeps owners apart.
- */
 export function describeTodoRepositoryContract(
   name: string,
   createRepository: () => TodoRepository | Promise<TodoRepository>,

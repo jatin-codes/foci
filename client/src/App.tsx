@@ -1,8 +1,8 @@
 import './App.css';
-import { NewTodoForm } from './components/NewTodoForm/NewTodoForm.js';
-import { SearchBar } from './components/SearchBar/SearchBar.js';
-import { TodoFilters } from './components/TodoFilters/TodoFilters.js';
-import { TodoList } from './components/TodoList/TodoList.js';
+import { NewTodoForm } from '@components/NewTodoForm/NewTodoForm.js';
+import { SearchBar } from '@components/SearchBar/SearchBar.js';
+import { TodoFilters } from '@components/TodoFilters/TodoFilters.js';
+import { TodoList } from '@components/TodoList/TodoList.js';
 import { useApp } from './useApp.js';
 
 export function App() {

@@ -1,11 +1,6 @@
 import { useState, type SubmitEvent } from 'react';
-import type { Todo, TodoEdits } from '../../../api/types.js';
+import type { Todo, TodoEdits } from '@api/types.js';
 
-/**
- * Holds the draft while a to-do is being edited, seeded from the to-do. A field
- * the user empties is sent as null, which is how the API clears an optional
- * value - distinct from omitting it, which would leave it untouched.
- */
 export function useTodoEditor(todo: Todo, onSave: (edits: TodoEdits) => Promise<void>) {
   const [title, setTitle] = useState(todo.title);
   const [description, setDescription] = useState(todo.description ?? '');

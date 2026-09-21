@@ -14,7 +14,6 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   res.status(404).json(errorBody('ROUTE_NOT_FOUND', `Cannot ${req.method} ${req.path}`));
 };
 
-/** Translates errors into HTTP responses; the single place where that mapping lives. */
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ValidationError) {
     res.status(400).json(errorBody('VALIDATION_ERROR', error.message, error.issues));
@@ -38,12 +37,10 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
     return;
   }
 
-  // Anything else is a bug or an infrastructure failure: log it, but do not leak details.
   console.error(error);
   res.status(500).json(errorBody('INTERNAL_ERROR', 'An unexpected error occurred'));
 };
 
-/** 4xx errors raised by Express middleware, e.g. the JSON body parser. */
 function isClientHttpError(error: unknown): error is Error & { status: number; type?: string } {
   return (
     error instanceof Error &&

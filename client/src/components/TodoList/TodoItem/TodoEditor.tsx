@@ -1,9 +1,4 @@
-import {
-  DESCRIPTION_MAX_LENGTH,
-  TITLE_MAX_LENGTH,
-  type Todo,
-  type TodoEdits,
-} from '../../../api/types.js';
+import { DESCRIPTION_MAX_LENGTH, TITLE_MAX_LENGTH, type Todo, type TodoEdits } from '@api/types.js';
 import { useTodoEditor } from './useTodoEditor.js';
 
 interface Props {

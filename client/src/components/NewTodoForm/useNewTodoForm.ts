@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
-import { send } from '../../api/http.js';
-import type { Todo } from '../../api/types.js';
-import { useInvalidateTodos } from '../../hooks/useInvalidateTodos.js';
+import { send } from '@api/http.js';
+import type { Todo } from '@api/types.js';
+import { useInvalidateTodos } from '@hooks/useInvalidateTodos.js';
 
 interface NewTodo {
   title: string;
@@ -35,7 +35,6 @@ export function useNewTodoForm() {
       })
       .catch(() => null);
 
-    // A failed save keeps the draft, so the user can retry without retyping.
     if (!saved) return;
     setTitle('');
     setDescription('');

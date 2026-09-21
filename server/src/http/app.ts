@@ -6,19 +6,10 @@ import { requestLogger } from './requestLogger.js';
 import { serveClient } from './serveClient.js';
 
 interface AppOptions {
-  /** Directory holding the built React app. Omitted, the app serves the API only. */
   clientDir?: string;
-  /** Receives one line per request. Omitted, requests are not logged - as in tests. */
   log?: (line: string) => void;
 }
 
-/**
- * Builds the Express app around its dependencies; it does not start listening.
- *
- * The JSON API lives under `/todos`. In production the built React app is served
- * from the same origin, so the browser needs no CORS and no separate host; in
- * development Vite serves it instead and proxies the API here.
- */
 export function createApp(todoService: TodoService, options: AppOptions = {}): Express {
   const app = express();
   app.disable('x-powered-by');

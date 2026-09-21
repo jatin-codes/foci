@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import type { TodoListQuery } from './types.js';
 
 export function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -12,10 +13,8 @@ export function createQueryClient(): QueryClient {
   });
 }
 
-// Every list query is keyed by the query it ran, so each filter caches separately.
 export const todoKeys = {
   all: ['todos'] as const,
-  list: (query: unknown) => ['todos', 'list', query] as const,
-  /** Mutations that act on one existing row; their variables always carry its `id`. */
+  list: (query: TodoListQuery) => ['todos', 'list', query] as const,
   rowWrite: ['todos', 'rowWrite'] as const,
 };

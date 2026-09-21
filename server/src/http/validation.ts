@@ -1,7 +1,6 @@
 import type { z } from 'zod';
 
 interface ValidationIssue {
-  /** Dot-separated path to the offending field; empty when the issue concerns the whole input. */
   path: string;
   message: string;
 }
@@ -13,7 +12,6 @@ export class ValidationError extends Error {
   }
 }
 
-/** Parses untrusted input, returning the typed and normalised value or throwing a ValidationError. */
 export function validate<Schema extends z.ZodType>(
   schema: Schema,
   input: unknown,
