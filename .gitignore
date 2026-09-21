@@ -1,0 +1,11 @@
+node_modules/
+dist/
+**/dist/
+coverage/
+
+# Runtime data written by the application
+data/
+
+.env
+.DS_Store
+*.log
