@@ -1,0 +1,81 @@
+/**
+ * Global styles only: design tokens, the page frame, and the element and utility
+ * styles more than one component relies on. Anything owned by a single component
+ * lives in that component's folder.
+ */
+
+:root {
+  color-scheme: light dark;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #e2e2e2;
+  --accent: #b3261e;
+  --bg: #fbfbfa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #ececec;
+    --muted: #9a9a9a;
+    --line: #333;
+    --accent: #f2b8b5;
+    --bg: #191919;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px/1.55 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif;
+}
+
+input,
+button,
+textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+/* A small secondary button. Shared by the filters, the row actions and the editor. */
+.chip {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.chip.selected {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* Secondary prose: due dates, descriptions, counts and empty states. */
+.muted {
+  display: block;
+  color: var(--muted);
+  font-size: 0.875rem;
+}

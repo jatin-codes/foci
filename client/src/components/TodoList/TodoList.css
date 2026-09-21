@@ -1,0 +1,22 @@
+.todos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.list-count,
+.list-empty,
+.list-error {
+  margin-top: 1.25rem;
+}
+
+.list-error {
+  color: var(--accent);
+}
+
+/* Present while a request is outstanding, so a slow network is visible rather
+   than looking like nothing happened. */
+.list-updating {
+  opacity: 0.7;
+}

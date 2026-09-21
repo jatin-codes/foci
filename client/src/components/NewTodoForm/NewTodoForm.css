@@ -1,0 +1,34 @@
+.new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.new-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.new-row input[name='title'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-description-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.new-description-toggle:hover {
+  color: var(--text);
+}
+
+/* A failed save is reported next to the form that caused it, not at page level. */
+.new-error {
+  color: var(--accent);
+}

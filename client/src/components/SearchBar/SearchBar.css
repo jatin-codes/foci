@@ -1,0 +1,30 @@
+.search {
+  position: relative;
+  margin-bottom: 0.9rem;
+}
+
+.search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 2rem;
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.4rem;
+  transform: translateY(-50%);
+  padding: 0.1rem 0.4rem;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.search-clear:hover {
+  color: var(--text);
+}
