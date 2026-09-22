@@ -7,6 +7,8 @@ Every required action is implemented (add, list, view, update, complete, incompl
 plus all four optional enhancements (filtering, sorting, input validation, Docker), search,
 and paging.
 
+**Live:** https://todo-foci.netlify.app/ (see [Deployment](#deployment)).
+
 ```
 server/   Express API: domain / application / infrastructure / http
 client/   React SPA, bundled by Vite
@@ -38,6 +40,24 @@ docker run --rm -p 3000:3000 -v todo-data:/data todo-app
 
 Settings: `PORT` (default `3000`), `DATA_FILE` (default `data/todos.json`), `CLIENT_DIR` (default
 `client/dist`). Relative paths resolve from the working directory, so run from the project root.
+
+## Deployment
+
+The app is live at **https://todo-foci.netlify.app/**, split across two hosts:
+
+- **Frontend on Netlify.** Netlify builds the React client (`npm run build:client`) and serves
+  `client/dist` from its CDN.
+- **Backend on [Railway](https://railway.com).** Railway builds the API from the `Dockerfile` and
+  runs it as a long-lived container, with a Railway volume mounted at `/data` so `todos.json`
+  survives redeploys. Serverless hosts were ruled out because their filesystems do not persist,
+  which the JSON-file store depends on.
+- **Netlify proxies the API.** The client calls relative paths (`/todos`, `/health`), and Netlify
+  rewrites them to the Railway service. The browser only talks to the Netlify domain, so there is
+  no CORS setup and the client needs no API URL.
+
+The API's address and the proxy rules live in the Netlify site settings (an `API_ORIGIN`
+environment variable used by the build), not in the repo, so the backend URL stays private.
+Both hosts deploy automatically on a push to `main`.
 
 ## Running the tests
 
