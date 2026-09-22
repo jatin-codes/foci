@@ -66,10 +66,10 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'Banana' });
       const apple = await service.create(OWNER, { title: 'Apple' });
       await service.create(OWNER, { title: 'Cherry' });
-      await service.markCompleted(OWNER, apple.id);
+      await service.update(OWNER, apple.id, { isCompleted: true });
 
       const { todos } = await service.list(OWNER, {
-        status: 'incomplete',
+        isCompleted: false,
         sortBy: 'title',
         order: 'desc',
       });
@@ -81,7 +81,7 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'Due yesterday', dueDate: '2025-06-14' });
       await service.create(OWNER, { title: 'Due today', dueDate: '2025-06-15' });
 
-      const { todos: overdue } = await service.list(OWNER, { status: 'overdue' });
+      const { todos: overdue } = await service.list(OWNER, { overdue: true });
 
       expect(overdue.map((todo) => todo.title)).toEqual(['Due yesterday']);
     });
@@ -108,7 +108,7 @@ describe('TodoService', () => {
       await service.create(OWNER, { title: 'Late', dueDate: '2025-06-01' });
       await service.create(OWNER, { title: 'Undated' });
 
-      const page = await service.list(OWNER, { status: 'overdue', limit: 10 });
+      const page = await service.list(OWNER, { overdue: true, limit: 10 });
 
       expect(page.todos.map((todo) => todo.title)).toEqual(['Late']);
       expect(page.total).toBe(1);
@@ -151,11 +151,11 @@ describe('TodoService', () => {
     });
   });
 
-  describe('markCompleted / markIncomplete', () => {
+  describe('completing', () => {
     it('marks a to-do as completed', async () => {
       const created = await service.create(OWNER, { title: 'Buy milk' });
 
-      const completed = await service.markCompleted(OWNER, created.id);
+      const completed = await service.update(OWNER, created.id, { isCompleted: true });
 
       expect(completed).toEqual({ ...created, isCompleted: true });
       expect((await service.get(OWNER, created.id)).isCompleted).toBe(true);
@@ -163,9 +163,9 @@ describe('TodoService', () => {
 
     it('marks a completed to-do as incomplete again', async () => {
       const created = await service.create(OWNER, { title: 'Buy milk' });
-      await service.markCompleted(OWNER, created.id);
+      await service.update(OWNER, created.id, { isCompleted: true });
 
-      const reopened = await service.markIncomplete(OWNER, created.id);
+      const reopened = await service.update(OWNER, created.id, { isCompleted: false });
 
       expect(reopened.isCompleted).toBe(false);
     });
@@ -174,7 +174,7 @@ describe('TodoService', () => {
       const created = await service.create(OWNER, { title: 'Late', dueDate: '2025-06-01' });
       expect(created.isOverdue).toBe(true);
 
-      const completed = await service.markCompleted(OWNER, created.id);
+      const completed = await service.update(OWNER, created.id, { isCompleted: true });
 
       expect(completed.isOverdue).toBe(false);
     });
@@ -182,15 +182,10 @@ describe('TodoService', () => {
     it('is idempotent', async () => {
       const created = await service.create(OWNER, { title: 'Buy milk' });
 
-      await service.markCompleted(OWNER, created.id);
-      const completedAgain = await service.markCompleted(OWNER, created.id);
+      await service.update(OWNER, created.id, { isCompleted: true });
+      const completedAgain = await service.update(OWNER, created.id, { isCompleted: true });
 
       expect(completedAgain.isCompleted).toBe(true);
-    });
-
-    it('rejects with TodoNotFoundError for an unknown id', async () => {
-      await expect(service.markCompleted(OWNER, 'missing')).rejects.toThrow(TodoNotFoundError);
-      await expect(service.markIncomplete(OWNER, 'missing')).rejects.toThrow(TodoNotFoundError);
     });
   });
 

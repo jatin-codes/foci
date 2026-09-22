@@ -7,7 +7,7 @@ const TODAY = '2025-06-15';
 const titles = (todos: { title: string }[]) => todos.map((todo) => todo.title);
 
 describe('queryTodos', () => {
-  describe('filtering by status', () => {
+  describe('filtering', () => {
     const todos = [
       buildTodo({ title: 'done', isCompleted: true, dueDate: '2025-06-01' }),
       buildTodo({ title: 'late', dueDate: '2025-06-14' }),
@@ -25,11 +25,11 @@ describe('queryTodos', () => {
     });
 
     it('returns only completed to-dos', () => {
-      expect(titles(queryTodos(todos, { status: 'completed' }, TODAY))).toEqual(['done']);
+      expect(titles(queryTodos(todos, { isCompleted: true }, TODAY))).toEqual(['done']);
     });
 
     it('returns only incomplete to-dos', () => {
-      expect(titles(queryTodos(todos, { status: 'incomplete' }, TODAY))).toEqual([
+      expect(titles(queryTodos(todos, { isCompleted: false }, TODAY))).toEqual([
         'late',
         'due today',
         'someday',
@@ -37,7 +37,23 @@ describe('queryTodos', () => {
     });
 
     it('returns only incomplete to-dos whose due date has passed as overdue', () => {
-      expect(titles(queryTodos(todos, { status: 'overdue' }, TODAY))).toEqual(['late']);
+      expect(titles(queryTodos(todos, { overdue: true }, TODAY))).toEqual(['late']);
+    });
+
+    it('returns everything else when overdue is false', () => {
+      expect(titles(queryTodos(todos, { overdue: false }, TODAY))).toEqual([
+        'done',
+        'due today',
+        'someday',
+      ]);
+    });
+
+    it('applies both filters together', () => {
+      expect(titles(queryTodos(todos, { isCompleted: false, overdue: false }, TODAY))).toEqual([
+        'due today',
+        'someday',
+      ]);
+      expect(queryTodos(todos, { isCompleted: true, overdue: true }, TODAY)).toEqual([]);
     });
   });
 
@@ -174,7 +190,7 @@ describe('queryTodos', () => {
         buildTodo({ title: 'Buy bread' }),
       ];
 
-      expect(titles(queryTodos(todos, { search: 'buy', status: 'incomplete' }, TODAY))).toEqual([
+      expect(titles(queryTodos(todos, { search: 'buy', isCompleted: false }, TODAY))).toEqual([
         'Buy bread',
       ]);
     });
@@ -187,7 +203,7 @@ describe('queryTodos', () => {
       buildTodo({ title: 'a', dueDate: '2025-06-05' }),
     ];
 
-    expect(titles(queryTodos(todos, { status: 'overdue', sortBy: 'dueDate' }, TODAY))).toEqual([
+    expect(titles(queryTodos(todos, { overdue: true, sortBy: 'dueDate' }, TODAY))).toEqual([
       'a',
       'b',
     ]);

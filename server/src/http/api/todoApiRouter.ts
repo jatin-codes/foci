@@ -43,14 +43,6 @@ export function createTodoApiRouter(service: TodoService): Router {
     res.json((await service.update(ownerOf(req), req.params.id, changes)) satisfies TodoResource);
   });
 
-  router.post('/:id/complete', async (req, res) => {
-    res.json((await service.markCompleted(ownerOf(req), req.params.id)) satisfies TodoResource);
-  });
-
-  router.post('/:id/incomplete', async (req, res) => {
-    res.json((await service.markIncomplete(ownerOf(req), req.params.id)) satisfies TodoResource);
-  });
-
   router.delete('/:id', async (req, res) => {
     await service.delete(ownerOf(req), req.params.id);
     res.status(204).end();

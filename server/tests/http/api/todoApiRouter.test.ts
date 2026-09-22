@@ -134,10 +134,10 @@ describe('To-do API', () => {
     it('filters by status', async () => {
       const done = await createTodo({ title: 'Done' });
       await createTodo({ title: 'Pending' });
-      await request.post(`/todos/${done.id}/complete`);
+      await request.patch(`/todos/${done.id}`).send({ isCompleted: true });
 
-      const completed = await request.get('/todos?status=completed');
-      const incomplete = await request.get('/todos?status=incomplete');
+      const completed = await request.get('/todos?isCompleted=true');
+      const incomplete = await request.get('/todos?isCompleted=false');
 
       expect(completed.body.map((todo: { title: string }) => todo.title)).toEqual(['Done']);
       expect(incomplete.body.map((todo: { title: string }) => todo.title)).toEqual(['Pending']);
@@ -147,9 +147,9 @@ describe('To-do API', () => {
       await createTodo({ title: 'Late', dueDate: '2025-06-14' });
       await createTodo({ title: 'Due today', dueDate: '2025-06-15' });
       const lateButDone = await createTodo({ title: 'Late but done', dueDate: '2025-06-01' });
-      await request.post(`/todos/${lateButDone.id}/complete`);
+      await request.patch(`/todos/${lateButDone.id}`).send({ isCompleted: true });
 
-      const response = await request.get('/todos?status=overdue');
+      const response = await request.get('/todos?overdue=true');
 
       expect(response.body.map((todo: { title: string }) => todo.title)).toEqual(['Late']);
     });
@@ -198,10 +198,10 @@ describe('To-do API', () => {
 
     it('combines search with a status filter', async () => {
       const done = await createTodo({ title: 'Buy milk' });
-      await request.post(`/todos/${done.id}/complete`).expect(200);
+      await request.patch(`/todos/${done.id}`).send({ isCompleted: true }).expect(200);
       await createTodo({ title: 'Buy bread' });
 
-      const response = await request.get('/todos?search=buy&status=incomplete');
+      const response = await request.get('/todos?search=buy&isCompleted=false');
 
       expect(response.body.map((todo: { title: string }) => todo.title)).toEqual(['Buy bread']);
     });
@@ -226,7 +226,8 @@ describe('To-do API', () => {
     });
 
     it.each([
-      ['status=done', 'status', 'status must be one of: all, incomplete, completed, overdue'],
+      ['isCompleted=yes', 'isCompleted', 'isCompleted must be true or false'],
+      ['overdue=1', 'overdue', 'overdue must be true or false'],
       ['sortBy=priority', 'sortBy', 'sortBy must be one of: createdAt, dueDate, title'],
       ['order=up', 'order', 'order must be one of: asc, desc'],
       [`search=${'x'.repeat(201)}`, 'search', 'search must be at most 200 characters'],
@@ -288,6 +289,27 @@ describe('To-do API', () => {
       expect(response.body.dueDate).toBeNull();
     });
 
+    it('marks a to-do as completed and back again', async () => {
+      const todo = await createTodo();
+
+      const completed = await request.patch(`/todos/${todo.id}`).send({ isCompleted: true });
+      expect(completed.status).toBe(200);
+      expect(completed.body).toEqual({ ...todo, isCompleted: true });
+
+      const reopened = await request.patch(`/todos/${todo.id}`).send({ isCompleted: false });
+      expect(reopened.body).toEqual({ ...todo, isCompleted: false });
+    });
+
+    it('is idempotent when completing', async () => {
+      const todo = await createTodo();
+      await request.patch(`/todos/${todo.id}`).send({ isCompleted: true });
+
+      const response = await request.patch(`/todos/${todo.id}`).send({ isCompleted: true });
+
+      expect(response.status).toBe(200);
+      expect(response.body.isCompleted).toBe(true);
+    });
+
     it('persists the update', async () => {
       const todo = await createTodo();
       await request.patch(`/todos/${todo.id}`).send({ title: 'Buy oat milk' });
@@ -302,7 +324,7 @@ describe('To-do API', () => {
       ['a blank title', { title: '' }],
       ['a null title', { title: null }],
       ['an invalid due date', { dueDate: 'soon' }],
-      ['the completion flag, which has dedicated endpoints', { isCompleted: true }],
+      ['a non-boolean completion flag', { isCompleted: 'yes' }],
       ['read-only fields', { createdAt: '2020-01-01T00:00:00.000Z' }],
     ])('rejects %s with 400', async (_case, body) => {
       const todo = await createTodo();
@@ -317,42 +339,6 @@ describe('To-do API', () => {
       const response = await request.patch('/todos/missing').send({ title: 'Nope' });
 
       expect(response.status).toBe(404);
-    });
-  });
-
-  describe('POST /todos/:id/complete and /incomplete', () => {
-    it('marks a to-do as completed', async () => {
-      const todo = await createTodo();
-
-      const response = await request.post(`/todos/${todo.id}/complete`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ ...todo, isCompleted: true });
-    });
-
-    it('marks a completed to-do as incomplete', async () => {
-      const todo = await createTodo();
-      await request.post(`/todos/${todo.id}/complete`);
-
-      const response = await request.post(`/todos/${todo.id}/incomplete`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ ...todo, isCompleted: false });
-    });
-
-    it('is idempotent', async () => {
-      const todo = await createTodo();
-      await request.post(`/todos/${todo.id}/complete`);
-
-      const response = await request.post(`/todos/${todo.id}/complete`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.isCompleted).toBe(true);
-    });
-
-    it('returns 404 for an unknown id', async () => {
-      expect((await request.post('/todos/missing/complete')).status).toBe(404);
-      expect((await request.post('/todos/missing/incomplete')).status).toBe(404);
     });
   });
 
@@ -419,7 +405,7 @@ describe('To-do API', () => {
       const other = agentFor(app, 'owner-2');
 
       await other.patch(`/todos/${mine.id}`).send({ title: 'Hijacked' }).expect(404);
-      await other.post(`/todos/${mine.id}/complete`).expect(404);
+      await other.patch(`/todos/${mine.id}`).send({ isCompleted: true }).expect(404);
       await other.delete(`/todos/${mine.id}`).expect(404);
 
       const unchanged = await request.get(`/todos/${mine.id}`);
@@ -462,11 +448,11 @@ describe('To-do API', () => {
         'owner-1',
       );
 
-      await logged.get('/todos?status=all').expect(200);
+      await logged.get('/todos?isCompleted=false').expect(200);
       await logged.get('/todos/missing').expect(404);
 
       expect(log.mock.calls.map(([line]) => line)).toEqual([
-        expect.stringMatching(/^GET \/todos\?status=all 200 \d+ms$/),
+        expect.stringMatching(/^GET \/todos\?isCompleted=false 200 \d+ms$/),
         expect.stringMatching(/^GET \/todos\/missing 404 \d+ms$/),
       ]);
     });

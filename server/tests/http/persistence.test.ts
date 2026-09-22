@@ -29,7 +29,7 @@ describe('To-do API with file persistence', () => {
   it('serves previously saved to-dos after a restart', async () => {
     const firstRun = startApp();
     const created = await firstRun.post('/todos').send({ title: 'Buy milk' }).expect(201);
-    await firstRun.post(`/todos/${created.body.id}/complete`).expect(200);
+    await firstRun.patch(`/todos/${created.body.id}`).send({ isCompleted: true }).expect(200);
 
     const secondRun = startApp();
     const response = await secondRun.get('/todos').expect(200);

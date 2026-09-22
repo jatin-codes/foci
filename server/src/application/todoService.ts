@@ -7,7 +7,6 @@ import {
   type Todo,
   type TodoChanges,
   type TodoView,
-  type UpdateTodoInput,
 } from '../domain/todo.js';
 import type { TodoListQuery } from '../../../shared/contract.js';
 import { queryTodos } from './todoQuery.js';
@@ -55,27 +54,15 @@ export class TodoService {
     return toView(todo, this.today());
   }
 
-  update(ownerId: string, id: string, changes: UpdateTodoInput): Promise<TodoView> {
-    return this.applyChanges(ownerId, id, changes);
-  }
-
-  markCompleted(ownerId: string, id: string): Promise<TodoView> {
-    return this.applyChanges(ownerId, id, { isCompleted: true });
-  }
-
-  markIncomplete(ownerId: string, id: string): Promise<TodoView> {
-    return this.applyChanges(ownerId, id, { isCompleted: false });
+  async update(ownerId: string, id: string, changes: TodoChanges): Promise<TodoView> {
+    const updated = await this.repository.update(ownerId, id, changes);
+    if (!updated) throw new TodoNotFoundError(id);
+    return toView(updated, this.today());
   }
 
   async delete(ownerId: string, id: string): Promise<void> {
     const removed = await this.repository.remove(ownerId, id);
     if (!removed) throw new TodoNotFoundError(id);
-  }
-
-  private async applyChanges(ownerId: string, id: string, changes: TodoChanges): Promise<TodoView> {
-    const updated = await this.repository.update(ownerId, id, changes);
-    if (!updated) throw new TodoNotFoundError(id);
-    return toView(updated, this.today());
   }
 
   private today(): string {

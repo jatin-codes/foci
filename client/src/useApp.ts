@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react';
-import type { SortField, SortOrder, StatusFilter } from '@api/types.js';
+import type { SortField, SortOrder } from '@api/types.js';
+import { LIST_FILTERS, type ListFilter } from '@components/TodoFilters/TodoFilters.js';
 
 interface Query {
-  status: StatusFilter;
+  filter: ListFilter;
   sortBy: SortField;
   order: SortOrder;
 }
 
-const DEFAULT_QUERY: Query = { status: 'all', sortBy: 'createdAt', order: 'asc' };
+const DEFAULT_QUERY: Query = { filter: 'all', sortBy: 'createdAt', order: 'asc' };
 
 export function useApp() {
   const [query, setQuery] = useState<Query>(DEFAULT_QUERY);
@@ -24,7 +25,12 @@ export function useApp() {
       setSearch(next);
       setPage(1);
     }, []),
-    listQuery: { ...query, search },
+    listQuery: {
+      ...LIST_FILTERS[query.filter].query,
+      sortBy: query.sortBy,
+      order: query.order,
+      search,
+    },
     page,
     setPage,
   };

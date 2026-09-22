@@ -23,8 +23,11 @@ function messageFor(caught: unknown, fallback: string): string {
 
 function emptyMessage(query: TodoListQuery): string {
   if (query.search) return `No to-dos match "${query.search}".`;
-  const status = query.status ?? 'all';
-  return status === 'all' ? 'Nothing to do yet.' : `No ${status} to-dos.`;
+  if (query.overdue) return 'No overdue to-dos.';
+  if (query.isCompleted !== undefined) {
+    return `No ${query.isCompleted ? 'completed' : 'incomplete'} to-dos.`;
+  }
+  return 'Nothing to do yet.';
 }
 
 export function useTodoList(
@@ -67,13 +70,6 @@ export function useTodoList(
     onSuccess: invalidate,
   });
 
-  const setCompleted = useMutation({
-    mutationKey: todoKeys.rowWrite,
-    mutationFn: ({ id, isCompleted }: { id: string; isCompleted: boolean }) =>
-      send<Todo>(`/todos/${id}/${isCompleted ? 'complete' : 'incomplete'}`, { method: 'POST' }),
-    onSuccess: invalidate,
-  });
-
   const busyIds = new Set(
     useMutationState({
       filters: { mutationKey: todoKeys.rowWrite, status: 'pending' },
@@ -108,7 +104,7 @@ export function useTodoList(
     setModeFor: (id: string, mode: ItemMode) =>
       setOpenItem(mode === 'collapsed' ? null : { id, mode }),
     toggle: (id: string, isCompleted: boolean) =>
-      run(() => setCompleted.mutateAsync({ id, isCompleted }), 'Could not update the to-do'),
+      run(() => edit.mutateAsync({ id, edits: { isCompleted } }), 'Could not update the to-do'),
     save: (id: string, edits: TodoEdits) =>
       run(() => edit.mutateAsync({ id, edits }), 'Could not save the to-do'),
     remove: (id: string) => run(() => remove.mutateAsync({ id }), 'Could not delete the to-do'),

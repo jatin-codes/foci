@@ -19,13 +19,12 @@ export interface CreateTodoInput {
   dueDate?: string | null;
 }
 
-export interface UpdateTodoInput {
+export interface TodoChanges {
   title?: string;
   description?: string | null;
   dueDate?: string | null;
+  isCompleted?: boolean;
 }
-
-export type TodoChanges = UpdateTodoInput & { isCompleted?: boolean };
 
 export function applyChanges(todo: Todo, changes: TodoChanges): Todo {
   const provided = Object.entries(changes).filter(([, value]) => value !== undefined);

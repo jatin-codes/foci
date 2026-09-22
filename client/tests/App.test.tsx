@@ -164,6 +164,7 @@ describe('App', () => {
       await waitFor(() =>
         expect(within(rowFor('Buy milk')).getByRole('checkbox')).not.toBeChecked(),
       );
+      expect(bodiesSent('PATCH')).toEqual([{ isCompleted: true }, { isCompleted: false }]);
     });
   });
 
@@ -336,6 +337,32 @@ describe('App', () => {
 
       await waitFor(() => expect(screen.queryByText('Pending thing')).not.toBeInTheDocument());
       expect(screen.getByText('Done thing')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['Incomplete', { isCompleted: 'false', overdue: null }],
+      ['Completed', { isCompleted: 'true', overdue: null }],
+      ['Overdue', { isCompleted: null, overdue: 'true' }],
+    ])('sends %s as the matching API filter', async (button, expected) => {
+      renderApp();
+      await screen.findByText('Buy milk');
+
+      await userEvent.click(screen.getByRole('button', { name: button }));
+
+      await waitFor(() => expect(lastListQuery().get('isCompleted')).toBe(expected.isCompleted));
+      expect(lastListQuery().get('overdue')).toBe(expected.overdue);
+    });
+
+    it('sends no filter for All', async () => {
+      renderApp();
+      await screen.findByText('Buy milk');
+      await userEvent.click(screen.getByRole('button', { name: 'Completed' }));
+      await waitFor(() => expect(lastListQuery().get('isCompleted')).toBe('true'));
+
+      await userEvent.click(screen.getByRole('button', { name: 'All' }));
+
+      await waitFor(() => expect(lastListQuery().has('isCompleted')).toBe(false));
+      expect(lastListQuery().has('overdue')).toBe(false);
     });
   });
 

@@ -7,16 +7,15 @@ export const SEARCH_MAX_LENGTH = 200;
 export const PAGE_SIZE_MAX = 100;
 export const TOTAL_COUNT_HEADER = 'X-Total-Count';
 
-export const STATUS_FILTERS = ['all', 'incomplete', 'completed', 'overdue'] as const;
 export const SORT_FIELDS = ['createdAt', 'dueDate', 'title'] as const;
 export const SORT_ORDERS = ['asc', 'desc'] as const;
 
-export type StatusFilter = (typeof STATUS_FILTERS)[number];
 export type SortField = (typeof SORT_FIELDS)[number];
 export type SortOrder = (typeof SORT_ORDERS)[number];
 
 export interface TodoListQuery {
-  status?: StatusFilter;
+  isCompleted?: boolean;
+  overdue?: boolean;
   sortBy?: SortField;
   order?: SortOrder;
   search?: string;

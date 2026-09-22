@@ -54,15 +54,13 @@ also builds the Docker image, starts it and smoke-tests it.
 Every request needs an `X-Owner-Id` header naming whose list it is (see
 [Assumptions](#assumptions)). The browser creates one and keeps it in `localStorage`.
 
-| Method   | Path                     | Does                                 | Success |
-| -------- | ------------------------ | ------------------------------------ | ------- |
-| `POST`   | `/todos`                 | Add                                  | `201`   |
-| `GET`    | `/todos`                 | List (filter, sort, search, page)    | `200`   |
-| `GET`    | `/todos/{id}`            | View                                 | `200`   |
-| `PATCH`  | `/todos/{id}`            | Update title, description and/or due | `200`   |
-| `POST`   | `/todos/{id}/complete`   | Mark completed                       | `200`   |
-| `POST`   | `/todos/{id}/incomplete` | Mark not completed                   | `200`   |
-| `DELETE` | `/todos/{id}`            | Delete                               | `204`   |
+| Method   | Path          | Does                                | Success |
+| -------- | ------------- | ----------------------------------- | ------- |
+| `POST`   | `/todos`      | Add                                 | `201`   |
+| `GET`    | `/todos`      | List (filter, sort, search, page)   | `200`   |
+| `GET`    | `/todos/{id}` | View                                | `200`   |
+| `PATCH`  | `/todos/{id}` | Update, complete or mark incomplete | `200`   |
+| `DELETE` | `/todos/{id}` | Delete                              | `204`   |
 
 ```json
 {
@@ -78,24 +76,29 @@ Every request needs an `X-Owner-Id` header naming whose list it is (see
 
 **Validation.** `title` is required, 1–200 characters after trimming. `description` is up to 2000
 characters or `null`. `dueDate` must be a real `YYYY-MM-DD` date or `null`. `PATCH` changes only
-the fields sent, and `null` clears one. Unknown fields, including `isCompleted`, `id` and
-`createdAt`, are rejected rather than ignored.
+the fields sent, and `null` clears one; `{ "isCompleted": true }` completes a to-do and `false`
+reopens it. Unknown fields, including `id` and `createdAt`, are rejected rather than ignored.
 
 **`GET /todos` query parameters**, all optional:
 
-| Parameter | Values                                      | Default     |
-| --------- | ------------------------------------------- | ----------- |
-| `status`  | `all`, `incomplete`, `completed`, `overdue` | `all`       |
-| `sortBy`  | `createdAt`, `dueDate`, `title`             | `createdAt` |
-| `order`   | `asc`, `desc`                               | `asc`       |
-| `search`  | text matched against title and description  | none        |
-| `limit`   | 1–100                                       | every match |
-| `offset`  | 0 or more                                   | `0`         |
+| Parameter     | Values                                     | Default     |
+| ------------- | ------------------------------------------ | ----------- |
+| `isCompleted` | `true`, `false`                            | either      |
+| `overdue`     | `true`, `false`                            | either      |
+| `sortBy`      | `createdAt`, `dueDate`, `title`            | `createdAt` |
+| `order`       | `asc`, `desc`                              | `asc`       |
+| `search`      | text matched against title and description | none        |
+| `limit`       | 1–100                                      | every match |
+| `offset`      | 0 or more                                  | `0`         |
 
-The `X-Total-Count` response header gives the number of matches across all pages. A to-do is
-overdue when it is incomplete and its due date is before today. Sorting by due date puts undated to-dos last.
+Filters combine, and leaving one out doesn't filter on it. `isCompleted` matches the stored
+field. `overdue` isn't stored: it's worked out on each request, so a to-do becomes overdue the
+day after its due date without anything updating it. A to-do is overdue when it is incomplete
+and its due date is before today. Sorting by due date puts undated to-dos last. The
+`X-Total-Count` response header gives the number of matches across all pages.
 
-**Errors** share one shape, `{ "error": { "code", "message", "details"? } }`: `400`
+**Errors**
+share one shape, `{ "error": { "code", "message", "details"? } }`: `400`
 `VALIDATION_ERROR` or `INVALID_JSON`, `404` `TODO_NOT_FOUND` or `ROUTE_NOT_FOUND`, and `500`
 `INTERNAL_ERROR`, which is logged but returns no details.
 
@@ -117,7 +120,8 @@ Dependencies point inwards: `http` → `application` → `domain`, with storage 
 edge.
 
 - **Storage sits behind an interface.** `TodoService` takes a `TodoRepository` in its
-  constructor. Moving to a database is one new class and one changed line in `server.ts`.
+  constructor. Moving to a database is one new class and one changed line in `server.ts`, so
+  the app can switch to one when it needs to scale.
 - **The HTTP layer is thin.** Handlers validate, call one service method and return the result.
   Failures are thrown as typed errors, and a single error handler maps them to status codes.
 - **Validation happens once, at the boundary.** Zod schemas check and normalise input
@@ -136,8 +140,9 @@ edge.
   sides compile against it, the router checks each response against it with `satisfies`, and
   ESLint stops the client importing server code.
 
-**API choices:** `PATCH` rather than `PUT`, because updates are partial. Completion has its own
-idempotent endpoints, so there is one obvious way to do each action.
+**API choices:** `PATCH` rather than `PUT`, because updates are partial. Completion is a field
+update like any other rather than its own endpoints, so a richer status later is a new field
+value, not new routes.
 
 **Client:** TanStack Query owns the server state. Each component owns the queries and writes it
 uses. Rows show when a write is in flight and disable their controls. A failed write or refresh
@@ -180,12 +185,20 @@ CI enforces coverage thresholds (currently 99% of lines).
   cost is the single-process limit above.
 - **The list is re-read after every write**, instead of being updated optimistically. That
   costs one extra request, but the screen can never drift from the server.
-- **An SPA for a simple interface.** It suits the interactive editing and filtering, at the
-  cost of a build step and an ~80 kB bundle.
 - **A hand-written shared contract, not generated types.** It's simple and catches drift at
   build time, but it doesn't describe the API to anyone outside the repo; OpenAPI would.
 - **No browser-driven end-to-end test.** Each layer is tested from both sides, but nothing
-  drives a real browser. A few Playwright tests would be my first addition.
+  drives a real browser. Playwright tests in this case would be a great addition.
+
+## Improvements
 
 With more time, I'd next add real authentication, a database, time-zone-aware due dates, and
 undo for deletes.
+
+### How I built this
+
+I used a hybrid setup of Claude Code and my own architectural experience on the backend and
+frontend. The focus was on making the demo robust (the `TodoRepository` seam) and scalable (an
+easy swap to a database when needed), with a clear folder structure for easy navigation and
+separation of concerns (business logic and requests in hooks, UI in component.tsx files),
+component-scoped styling, proper validation, logging and structured error handling.

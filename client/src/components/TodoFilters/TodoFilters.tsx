@@ -1,11 +1,17 @@
-import {
-  SORT_FIELDS,
-  STATUS_FILTERS,
-  type SortField,
-  type SortOrder,
-  type StatusFilter,
-} from '@api/types.js';
+import { SORT_FIELDS, type SortField, type SortOrder, type TodoListQuery } from '@api/types.js';
 import './TodoFilters.css';
+
+export const LIST_FILTERS = {
+  all: { label: 'All', query: {} },
+  incomplete: { label: 'Incomplete', query: { isCompleted: false } },
+  completed: { label: 'Completed', query: { isCompleted: true } },
+  overdue: { label: 'Overdue', query: { overdue: true } },
+} satisfies Record<
+  string,
+  { label: string; query: Pick<TodoListQuery, 'isCompleted' | 'overdue'> }
+>;
+
+export type ListFilter = keyof typeof LIST_FILTERS;
 
 const SORT_LABELS: Record<SortField, string> = {
   createdAt: 'Created',
@@ -14,35 +20,31 @@ const SORT_LABELS: Record<SortField, string> = {
 };
 
 interface TodoFiltersChange {
-  status?: StatusFilter;
+  filter?: ListFilter;
   sortBy?: SortField;
   order?: SortOrder;
 }
 
 interface Props {
-  status: StatusFilter;
+  filter: ListFilter;
   sortBy: SortField;
   order: SortOrder;
   onChange: (change: TodoFiltersChange) => void;
 }
 
-function label(status: string): string {
-  return status === 'all' ? 'All' : status[0]!.toUpperCase() + status.slice(1);
-}
-
-export function TodoFilters({ status, sortBy, order, onChange }: Props) {
+export function TodoFilters({ filter, sortBy, order, onChange }: Props) {
   return (
     <div className="filters">
-      <div className="filter-statuses" role="group" aria-label="Filter by status">
-        {STATUS_FILTERS.map((value) => (
+      <div className="filter-statuses" role="group" aria-label="Filter the list">
+        {(Object.keys(LIST_FILTERS) as ListFilter[]).map((value) => (
           <button
             key={value}
             type="button"
-            className={value === status ? 'chip selected' : 'chip'}
-            aria-pressed={value === status}
-            onClick={() => onChange({ status: value })}
+            className={value === filter ? 'chip selected' : 'chip'}
+            aria-pressed={value === filter}
+            onClick={() => onChange({ filter: value })}
           >
-            {label(value)}
+            {LIST_FILTERS[value].label}
           </button>
         ))}
       </div>

@@ -1,12 +1,13 @@
-import type { SortField, StatusFilter, TodoListQuery } from '../../../shared/contract.js';
+import type { SortField, TodoListQuery } from '../../../shared/contract.js';
 import { isOverdue, type Todo } from '../domain/todo.js';
 
-const matchesStatus: Record<StatusFilter, (todo: Todo, today: string) => boolean> = {
-  all: () => true,
-  completed: (todo) => todo.isCompleted,
-  incomplete: (todo) => !todo.isCompleted,
-  overdue: isOverdue,
-};
+function matchesFilters(todo: Todo, query: TodoListQuery, today: string): boolean {
+  const { isCompleted, overdue } = query;
+  return (
+    (isCompleted === undefined || todo.isCompleted === isCompleted) &&
+    (overdue === undefined || isOverdue(todo, today) === overdue)
+  );
+}
 
 function matchesSearch(todo: Todo, search: string): boolean {
   const needle = search.trim().toLowerCase();
@@ -34,13 +35,13 @@ const compareKeys: Record<SortField, (a: string, b: string) => number> = {
 };
 
 export function queryTodos(todos: readonly Todo[], query: TodoListQuery, today: string): Todo[] {
-  const { status = 'all', sortBy = 'createdAt', order = 'asc', search = '' } = query;
+  const { sortBy = 'createdAt', order = 'asc', search = '' } = query;
   const direction = order === 'asc' ? 1 : -1;
   const keyOf = sortKey[sortBy];
   const compare = compareKeys[sortBy];
 
   return todos
-    .filter((todo) => matchesStatus[status](todo, today) && matchesSearch(todo, search))
+    .filter((todo) => matchesFilters(todo, query, today) && matchesSearch(todo, search))
     .sort((a, b) => {
       const keyA = keyOf(a);
       const keyB = keyOf(b);

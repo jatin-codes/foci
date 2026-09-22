@@ -43,7 +43,7 @@ export function fakeApi(
     const method = init?.method ?? 'GET';
     const [path = '', search = ''] = input.split('?');
     const body = init?.body ? (JSON.parse(init.body as string) as Partial<Todo>) : {};
-    const idFrom = (suffix = '') => path.replace('/todos/', '').replace(suffix, '');
+    const idFrom = () => path.replace('/todos/', '');
 
     if (hold && method !== 'GET') await hold;
 
@@ -57,21 +57,19 @@ export function fakeApi(
 
     if (path === '/todos' && method === 'GET') {
       const params = new URLSearchParams(search);
-      const status = params.get('status');
+      const isCompleted = params.get('isCompleted');
+      const overdue = params.get('overdue');
       const needle = (params.get('search') ?? '').toLowerCase();
 
-      const matchesStatus = (todo: Todo) =>
-        status === 'completed'
-          ? todo.isCompleted
-          : status === 'incomplete'
-            ? !todo.isCompleted
-            : true;
+      const matchesFilters = (todo: Todo) =>
+        (isCompleted === null || String(todo.isCompleted) === isCompleted) &&
+        (overdue === null || String(todo.isOverdue) === overdue);
       const matchesSearch = (todo: Todo) =>
         needle === '' ||
         todo.title.toLowerCase().includes(needle) ||
         (todo.description?.toLowerCase().includes(needle) ?? false);
 
-      const matching = todos.filter((todo) => matchesStatus(todo) && matchesSearch(todo));
+      const matching = todos.filter((todo) => matchesFilters(todo) && matchesSearch(todo));
       const offset = Number(params.get('offset') ?? 0);
       const limit = Number(params.get('limit') ?? matching.length);
       return json(matching.slice(offset, offset + limit), 200, {
@@ -94,13 +92,6 @@ export function fakeApi(
     if (method === 'DELETE') {
       todos = todos.filter((todo) => todo.id !== idFrom());
       return new Response(null, { status: 204 });
-    }
-
-    if (path.endsWith('/complete') || path.endsWith('/incomplete')) {
-      const isCompleted = !path.endsWith('/incomplete');
-      const id = idFrom(isCompleted ? '/complete' : '/incomplete');
-      todos = todos.map((todo) => (todo.id === id ? { ...todo, isCompleted } : todo));
-      return json(todos.find((todo) => todo.id === id));
     }
 
     throw new Error(`Unhandled request: ${method} ${input}`);

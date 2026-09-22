@@ -7,7 +7,6 @@ import {
   SEARCH_MAX_LENGTH,
   SORT_FIELDS,
   SORT_ORDERS,
-  STATUS_FILTERS,
   TITLE_MAX_LENGTH,
 } from '../../../shared/contract.js';
 import { isCalendarDate } from '../domain/calendarDate.js';
@@ -45,10 +44,11 @@ export const updateTodoSchema = z
     title: title.optional(),
     description: description.optional(),
     dueDate: dueDate.optional(),
+    isCompleted: z.boolean({ error: 'isCompleted must be true or false' }).optional(),
   })
   .refine(
     (changes) => Object.keys(changes).length > 0,
-    'at least one of title, description or dueDate must be provided',
+    'at least one of title, description, dueDate or isCompleted must be provided',
   );
 
 function oneOf<const Values extends readonly [string, ...string[]]>(param: string, values: Values) {
@@ -69,8 +69,16 @@ function integer(param: string, min: number, max?: number) {
     .optional();
 }
 
+function boolean(param: string) {
+  return z
+    .enum(['true', 'false'], { error: `${param} must be true or false` })
+    .transform((value) => value === 'true')
+    .optional();
+}
+
 export const listTodosQuerySchema = z.object({
-  status: oneOf('status', STATUS_FILTERS),
+  isCompleted: boolean('isCompleted'),
+  overdue: boolean('overdue'),
   sortBy: oneOf('sortBy', SORT_FIELDS),
   order: oneOf('order', SORT_ORDERS),
   search: z
