@@ -25,7 +25,6 @@ COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/client/dist ./client/dist
 
 RUN mkdir /data && chown node:node /data
-VOLUME /data
 USER node
 
 EXPOSE 3000
